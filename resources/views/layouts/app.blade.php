@@ -152,6 +152,18 @@
                 simpan(kunci, String(window.scrollY));
             });
 
+            // Setelah form dikirim, halaman jawabannya dimulai dari atas, supaya pesan hasilnya
+            // terlihat. Tanpa ini penonton mendarat di tengah halaman seperti sebelum mengirim.
+            document.addEventListener('submit', function (e) {
+                if (e.target.method && e.target.method.toLowerCase() === 'post') simpan('kirim:' + location.pathname, '1');
+            }, true);
+
+            if (baca('kirim:' + location.pathname)) {
+                try { sessionStorage.removeItem('kirim:' + location.pathname); } catch (e) {}
+                simpan(kunci, '0');
+                return;
+            }
+
             // Tautan ke bagian tertentu, seperti #semua-film, lebih diutamakan daripada posisi lama.
             if (location.hash) return;
 

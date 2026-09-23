@@ -33,7 +33,8 @@
 
         <p class="mt-2 max-w-prose text-sm text-nema-muted">
             {{ $total }} masukan tersimpan. Nada tiap masukan (positif, netral, negatif) ditentukan model
-            analisis sentimen, bukan dibaca satu per satu oleh pengelola.
+            analisis sentimen, bukan dibaca satu per satu oleh pengelola. Ringkasan dan grafik di bawah
+            memakai seluruh masukan; daftarnya bisa disaring per bagian layanan dan per nada.
         </p>
 
         @if ($total === 0)
@@ -98,12 +99,14 @@
             <h2 class="mt-12 text-xl sm:text-2xl">Bagian mana yang paling banyak dikeluhkan?</h2>
 
             <ul class="mt-4 space-y-4">
-                @foreach ($perKategori as $kategori => $baris)
+                {{-- Nama peubah di sini sengaja bukan $kategori, karena $kategori dipakai
+                     untuk saringan yang sedang aktif di daftar bawah. --}}
+                @foreach ($perKategori as $bagian => $baris)
                     @php $jumlahKategori = $baris->sum('total'); @endphp
 
                     <li>
                         <div class="flex flex-wrap items-baseline justify-between gap-x-4">
-                            <span>{{ $namaKategori[$kategori] ?? $kategori }}</span>
+                            <span>{{ $namaKategori[$bagian] ?? $bagian }}</span>
                             @php
                                 // Nada yang jumlahnya nol tidak ditulis, supaya tidak ada koma menggantung.
                                 $rincian = collect($namaSentimen)
@@ -132,7 +135,69 @@
                 @endforeach
             </ul>
 
-            <h2 class="mt-12 text-xl sm:text-2xl">Masukan terbaru</h2>
+            @php
+                // Jumlah per kategori dan per nada, dipakai di tombol saringan supaya admin tahu
+                // ada berapa masukan sebelum mengkliknya.
+                $jumlahKategori = $byCategory->groupBy('category')->map(fn ($b) => $b->sum('total'));
+            @endphp
+
+            <h2 class="mt-12 text-xl sm:text-2xl">Daftar masukan</h2>
+
+            {{-- Saringan dikirim lewat alamat, jadi hasilnya bisa ditautkan dan tetap jalan tanpa skrip. --}}
+            <div class="no-scrollbar relative -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+                <a href="{{ request()->fullUrlWithQuery(['kategori' => null, 'page' => null]) }}"
+                   @if (! $kategori) aria-current="page" @endif
+                   class="inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm transition-colors {{ ! $kategori ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
+                    Semua bagian ({{ $total }})
+                </a>
+
+                @foreach ($namaKategori as $nilai => $label)
+                    @continue (! isset($jumlahKategori[$nilai]))
+
+                    <a href="{{ request()->fullUrlWithQuery(['kategori' => $nilai, 'page' => null]) }}"
+                       @if ($kategori === $nilai) aria-current="page" @endif
+                       class="inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm transition-colors {{ $kategori === $nilai ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
+                        {{ $label }} ({{ $jumlahKategori[$nilai] }})
+                    </a>
+                @endforeach
+            </div>
+
+            <div class="no-scrollbar relative -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+                <a href="{{ request()->fullUrlWithQuery(['nada' => null, 'page' => null]) }}"
+                   @if (! $nada) aria-current="page" @endif
+                   class="inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm transition-colors {{ ! $nada ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
+                    Semua nada
+                </a>
+
+                @foreach ($namaSentimen as $nilai => $label)
+                    @continue (! ($summary[$nilai] ?? 0))
+
+                    <a href="{{ request()->fullUrlWithQuery(['nada' => $nilai, 'page' => null]) }}"
+                       @if ($nada === $nilai) aria-current="page" @endif
+                       class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 text-sm transition-colors {{ $nada === $nilai ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
+                        @isset ($warnaSentimen[$nilai])
+                            <span class="size-2.5 shrink-0 rounded-sm {{ $warnaSentimen[$nilai] }}" aria-hidden="true"></span>
+                        @endisset
+                        {{ $label }} ({{ $summary[$nilai] }})
+                    </a>
+                @endforeach
+            </div>
+
+            <p class="mt-4 text-sm text-nema-muted" aria-live="polite">
+                {{ $latestFeedbacks->total() }} masukan
+                {{ $kategori ? 'di bagian ' . mb_strtolower($namaKategori[$kategori]) : '' }}
+                {{ $nada ? 'bernada ' . mb_strtolower($namaSentimen[$nada]) : '' }}
+            </p>
+
+            @if ($latestFeedbacks->isEmpty())
+                <div class="mt-4 rounded-xl bg-nema-surface px-6 py-10 text-center">
+                    <p>Tidak ada masukan yang cocok dengan saringan ini.</p>
+                    <a href="{{ url('/admin/feedback') }}"
+                       class="mt-4 inline-flex min-h-11 items-center rounded-md border border-nema-line px-5 text-sm transition-colors hover:bg-nema-surface-2">
+                        Tampilkan semua masukan
+                    </a>
+                </div>
+            @endif
 
             <ul class="mt-4 space-y-4">
                 @foreach ($latestFeedbacks as $masukan)
@@ -157,6 +222,10 @@
                     </li>
                 @endforeach
             </ul>
+
+            <div class="mt-8">
+                {{ $latestFeedbacks->links('partials.halaman') }}
+            </div>
         @endif
 
     </div>

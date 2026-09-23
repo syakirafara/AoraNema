@@ -115,8 +115,17 @@ class FeedbackController extends Controller
     /**
      * Menampilkan dashboard statistik sentimen untuk Admin.
      */
-    public function indexAdmin()
+    public function indexAdmin(Request $request)
     {
+        // Saringan dari alamat: ?kategori=payment&nada=negative. Nilai di luar daftar diabaikan.
+        $kategori = in_array($request->query('kategori'), ['booking', 'payment', 'application', 'customer_service', 'cinema_service', 'other'])
+            ? $request->query('kategori')
+            : null;
+
+        $nada = in_array($request->query('nada'), ['positive', 'neutral', 'negative', 'unknown'])
+            ? $request->query('nada')
+            : null;
+
         $summary = Feedback::selectRaw('sentiment, COUNT(*) as total')
             ->groupBy('sentiment')
             ->pluck('total', 'sentiment')
@@ -126,12 +135,15 @@ class FeedbackController extends Controller
             ->groupBy('category', 'sentiment')
             ->get();
 
+        // Ringkasan dan grafik memakai seluruh masukan, sedangkan daftarnya mengikuti saringan,
+        // supaya angka besarnya tidak ikut berubah waktu admin sedang menyaring.
         $latestFeedbacks = Feedback::with('user')
+            ->when($kategori, fn ($q) => $q->where('category', $kategori))
+            ->when($nada, fn ($q) => $q->where('sentiment', $nada))
             ->orderByDesc('created_at')
-            ->take(20)
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
 
-        // Mengirim data mentah ke view admin. Tim FE akan menata tampilannya.
-        return view('admin.feedback.index', compact('summary', 'byCategory', 'latestFeedbacks'));
+        return view('admin.feedback.index', compact('summary', 'byCategory', 'latestFeedbacks', 'kategori', 'nada'));
     }
 }
