@@ -6,228 +6,194 @@
 
     @include('admin.nav')
 
-    <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    @php
+        $namaSentimen = ['positive' => 'Positif', 'neutral' => 'Netral', 'negative' => 'Negatif', 'unknown' => 'Belum dianalisis'];
+        $namaKategori = [
+            'booking' => 'Pemesanan tiket',
+            'payment' => 'Pembayaran',
+            'application' => 'Website AoraNema',
+            'customer_service' => 'Layanan pelanggan',
+            'cinema_service' => 'Layanan di bioskop',
+            'other' => 'Lainnya',
+        ];
 
-        @php
-            $namaSentimen = ['positive' => 'Positif', 'neutral' => 'Netral', 'negative' => 'Negatif', 'unknown' => 'Belum dianalisis'];
-            $namaKategori = [
-                'booking' => 'Pemesanan tiket',
-                'payment' => 'Pembayaran',
-                'application' => 'Website AoraNema',
-                'customer_service' => 'Layanan pelanggan',
-                'cinema_service' => 'Layanan di bioskop',
-                'other' => 'Lainnya',
-            ];
-            $total = array_sum($summary);
+        // Warna nada hanya pendukung. Tiap angka tetap ditulis, supaya halaman ini tetap terbaca
+        // oleh yang sulit membedakan warna.
+        $warna = ['positive' => 'bg-usia-semua', 'neutral' => 'bg-nema-line', 'negative' => 'bg-usia-dewasa'];
 
-            // Warna hanya pendukung: tiap angka selalu ditulis juga sebagai teks, supaya
-            // tetap terbaca oleh yang sulit membedakan warna.
-            $warnaSentimen = [
-                'positive' => 'bg-usia-semua',
-                'neutral' => 'bg-nema-line',
-                'negative' => 'bg-usia-dewasa',
-            ];
-        @endphp
+        $total = array_sum($summary);
+        $negatif = $summary['negative'] ?? 0;
+        $persen = fn ($jumlah, $dari) => $dari ? round($jumlah / $dari * 100) : 0;
 
-        <h1 class="text-2xl sm:text-3xl">Masukan Penonton</h1>
+        // Bagian layanan diurutkan dari porsi keluhan terbesar, karena itu yang lebih dulu perlu
+        // ditindaklanjuti. Enam keluhan dari sepuluh masukan lebih mendesak daripada enam dari empat puluh.
+        $perBagian = $byCategory->groupBy('category')
+            ->sortByDesc(fn ($b) => ($b->firstWhere('sentiment', 'negative')->total ?? 0) / max(1, $b->sum('total')));
 
-        <p class="mt-2 max-w-prose text-sm text-nema-muted">
-            {{ $total }} masukan tersimpan. Nada tiap masukan (positif, netral, negatif) ditentukan model
-            analisis sentimen, bukan dibaca satu per satu oleh pengelola. Ringkasan dan grafik di bawah
-            memakai seluruh masukan; daftarnya bisa disaring per bagian layanan dan per nada.
-        </p>
+        $paling = $perBagian->keys()->first();
+        $jalur = url('/admin/feedback');
+    @endphp
 
-        @if ($total === 0)
-            <div class="mt-8 rounded-xl bg-nema-surface px-6 py-12 text-center">
-                <p class="text-lg">Belum ada masukan yang masuk</p>
-                <p class="mt-2 text-sm text-nema-muted">
-                    Masukan dari penonton muncul di sini setelah mereka mengirimnya lewat halaman Kirim Masukan.
-                </p>
-            </div>
-        @else
-            {{-- Ringkasan nada masukan. Angkanya dihitung dari seluruh masukan yang tersimpan. --}}
-            <div class="mt-8 grid gap-4 sm:grid-cols-3">
-                @foreach (array_slice($namaSentimen, 0, 3, true) as $kunci => $label)
-                    @php $jumlah = $summary[$kunci] ?? 0; @endphp
-                    <div class="rounded-xl bg-nema-surface p-5">
-                        <p class="text-sm text-nema-muted">{{ $label }}</p>
-                        <p class="mt-1 text-3xl font-semibold">{{ $jumlah }}</p>
-                        <p class="mt-1 text-sm text-nema-muted">
-                            {{ $total ? round($jumlah / $total * 100) : 0 }}% dari semua masukan
+    @if ($total === 0)
+        <div class="mx-auto max-w-5xl px-4 py-20 text-center sm:px-6">
+            <h1 class="text-2xl sm:text-3xl">Belum ada masukan yang masuk</h1>
+            <p class="mx-auto mt-3 max-w-prose text-nema-muted">
+                Masukan dari penonton muncul di sini setelah mereka mengirimnya lewat halaman Kirim Masukan,
+                lengkap dengan nada yang dibaca model analisis sentimen.
+            </p>
+        </div>
+    @else
+        {{-- Satu angka dibesarkan, yaitu porsi keluhan, karena itu yang menentukan tindakan pengelola. --}}
+        <header class="border-b border-nema-line/40 bg-nema-surface">
+            <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+                <p class="text-sm text-nema-muted">Masukan penonton</p>
+
+                <div class="mt-4 flex flex-wrap items-end gap-x-12 gap-y-8">
+                    <div>
+                        <p class="text-6xl font-semibold leading-none text-usia-dewasa sm:text-7xl">
+                            {{ $persen($negatif, $total) }}%
+                        </p>
+                        <p class="mt-3 max-w-xs text-nema-muted">
+                            masukan bernada negatif, {{ $negatif }} dari {{ $total }} yang masuk.
+                            @if ($paling)
+                                Paling banyak di <span class="text-nema-text">{{ mb_strtolower($namaKategori[$paling] ?? $paling) }}</span>.
+                            @endif
                         </p>
                     </div>
-                    @endforeach
 
-                @if (($summary['unknown'] ?? 0) > 0)
-                    <div class="rounded-xl border border-nema-line bg-nema-surface p-5 sm:col-span-3">
-                        <p class="text-sm">
-                            {{ $summary['unknown'] }} masukan belum dianalisis nadanya, karena layanan
-                            analisis sentimen tidak bisa dihubungi saat masukan itu dikirim.
-                        </p>
-                    </div>
-                @endif
+                    <dl class="flex gap-10 text-sm">
+                        @foreach (['neutral', 'positive'] as $kunci)
+                            <div>
+                                <dt class="text-nema-muted">{{ $namaSentimen[$kunci] }}</dt>
+                                <dd class="mt-1 text-2xl font-semibold">
+                                    {{ $persen($summary[$kunci] ?? 0, $total) }}%
+                                    <span class="text-sm font-normal text-nema-muted">{{ $summary[$kunci] ?? 0 }} masukan</span>
+                                </dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                </div>
             </div>
+        </header>
 
-            {{-- Satu batang untuk menjawab: seberapa besar bagian masukan yang bernada negatif? --}}
-            <div class="mt-8 flex h-3 overflow-hidden rounded-full bg-nema-surface-2" role="img"
-                 aria-label="Perbandingan nada masukan: {{ implode(', ', array_map(fn ($k, $l) => ($summary[$k] ?? 0) . ' ' . $l, array_keys($namaSentimen), $namaSentimen)) }}">
-                @foreach ($warnaSentimen as $kunci => $warna)
-                    @php $jumlah = $summary[$kunci] ?? 0; @endphp
-                    @if ($jumlah)
-                        <div class="{{ $warna }}" style="width: {{ $jumlah / $total * 100 }}%"></div>
-                    @endif
-                @endforeach
-            </div>
+        <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
 
-            <div class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm text-nema-muted">
-                @foreach ($warnaSentimen as $kunci => $warna)
-                    <span class="flex items-center gap-2">
-                        <span class="size-3 shrink-0 rounded-sm {{ $warna }}" aria-hidden="true"></span>
-                        {{ $namaSentimen[$kunci] }} {{ $summary[$kunci] ?? 0 }}
-                    </span>
-                @endforeach
-            </div>
-
-            @php
-                // Bagian layanan diurutkan dari yang paling banyak masukan negatifnya, karena itu
-                // yang pertama perlu ditindaklanjuti pengelola.
-                $perKategori = $byCategory->groupBy('category')
-                    ->sortByDesc(fn ($baris) => $baris->firstWhere('sentiment', 'negative')->total ?? 0);
-                $terbanyak = $perKategori->max(fn ($baris) => $baris->sum('total')) ?: 1;
-            @endphp
-
-            <h2 class="mt-12 text-xl sm:text-2xl">Bagian mana yang paling banyak dikeluhkan?</h2>
-
-            <ul class="mt-4 space-y-4">
-                {{-- Nama peubah di sini sengaja bukan $kategori, karena $kategori dipakai
-                     untuk saringan yang sedang aktif di daftar bawah. --}}
-                @foreach ($perKategori as $bagian => $baris)
-                    @php $jumlahKategori = $baris->sum('total'); @endphp
-
-                    <li>
-                        <div class="flex flex-wrap items-baseline justify-between gap-x-4">
-                            <span>{{ $namaKategori[$bagian] ?? $bagian }}</span>
+            <div class="relative overflow-x-auto">
+                <table class="w-full min-w-2xl text-left text-sm">
+                    <caption class="sr-only">Masukan per bagian layanan, diurutkan dari porsi keluhan terbesar</caption>
+                    <thead class="text-nema-muted">
+                        <tr>
+                            <th class="pb-3 pr-4 font-normal">Bagian layanan</th>
+                            <th class="pb-3 pr-4 font-normal">Sebaran nada</th>
+                            <th class="pb-3 pr-4 font-normal">Masukan</th>
+                            <th class="pb-3 text-right font-normal">Keluhan</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-nema-line/30 border-t border-nema-line/30">
+                        @foreach ($perBagian as $bagian => $baris)
                             @php
-                                // Nada yang jumlahnya nol tidak ditulis, supaya tidak ada koma menggantung.
-                                $rincian = collect($namaSentimen)
-                                    ->map(fn ($label, $kunci) => ($baris->firstWhere('sentiment', $kunci)->total ?? 0)
-                                        ? ($baris->firstWhere('sentiment', $kunci)->total . ' ' . mb_strtolower($label))
-                                        : null)
-                                    ->filter()
-                                    ->implode(', ');
+                                $n = $baris->sum('total');
+                                $neg = $baris->firstWhere('sentiment', 'negative')->total ?? 0;
+                                $aktif = $kategori === $bagian;
                             @endphp
 
-                            <span class="text-sm text-nema-muted">{{ $rincian }}</span>
-                        </div>
+                            <tr>
+                                <td class="py-3 pr-4">
+                                    {{-- Klik nama bagian untuk menyaring daftar di bawah; klik lagi untuk melepas. --}}
+                                    <a href="{{ $jalur }}?{{ http_build_query(array_filter(['kategori' => $aktif ? null : $bagian, 'nada' => $nada])) }}"
+                                       @if ($aktif) aria-current="true" @endif
+                                       class="inline-flex min-h-11 items-center transition-colors hover:text-nema-accent {{ $aktif ? 'text-nema-accent' : '' }}">
+                                        {{ $namaKategori[$bagian] ?? $bagian }}
+                                    </a>
+                                </td>
 
-                        {{-- Panjang batang mengikuti jumlah masukan, jadi bagian dengan masukan
-                             paling banyak terlihat paling panjang. --}}
-                        <div class="mt-2 flex h-2.5 overflow-hidden rounded-full bg-nema-surface"
-                             style="width: {{ max(12, $jumlahKategori / $terbanyak * 100) }}%">
-                            @foreach ($warnaSentimen as $kunci => $warna)
-                                @php $n = $baris->firstWhere('sentiment', $kunci)->total ?? 0; @endphp
-                                @if ($n)
-                                    <div class="{{ $warna }}" style="width: {{ $n / $jumlahKategori * 100 }}%"></div>
-                                @endif
-                            @endforeach
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
+                                <td class="w-1/2 py-3 pr-4">
+                                    <span class="flex h-1.5 overflow-hidden rounded-full bg-nema-surface-2" aria-hidden="true">
+                                        @foreach ($warna as $kunci => $w)
+                                            @php $x = $baris->firstWhere('sentiment', $kunci)->total ?? 0; @endphp
+                                            @if ($x)<span class="{{ $w }}" style="width: {{ $x / $n * 100 }}%"></span>@endif
+                                        @endforeach
+                                    </span>
+                                </td>
 
-            @php
-                // Jumlah per kategori dan per nada, dipakai di tombol saringan supaya admin tahu
-                // ada berapa masukan sebelum mengkliknya.
-                $jumlahKategori = $byCategory->groupBy('category')->map(fn ($b) => $b->sum('total'));
-            @endphp
+                                <td class="py-3 pr-4 text-nema-muted">{{ $n }}</td>
 
-            <h2 class="mt-12 text-xl sm:text-2xl">Daftar masukan</h2>
-
-            {{-- Saringan dikirim lewat alamat, jadi hasilnya bisa ditautkan dan tetap jalan tanpa skrip. --}}
-            <div class="no-scrollbar relative -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-                <a href="{{ request()->fullUrlWithQuery(['kategori' => null, 'page' => null]) }}"
-                   @if (! $kategori) aria-current="page" @endif
-                   class="inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm transition-colors {{ ! $kategori ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
-                    Semua bagian ({{ $total }})
-                </a>
-
-                @foreach ($namaKategori as $nilai => $label)
-                    @continue (! isset($jumlahKategori[$nilai]))
-
-                    <a href="{{ request()->fullUrlWithQuery(['kategori' => $nilai, 'page' => null]) }}"
-                       @if ($kategori === $nilai) aria-current="page" @endif
-                       class="inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm transition-colors {{ $kategori === $nilai ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
-                        {{ $label }} ({{ $jumlahKategori[$nilai] }})
-                    </a>
-                @endforeach
+                                <td class="py-3 text-right {{ $neg ? 'text-usia-dewasa' : 'text-nema-muted' }}">
+                                    {{ $persen($neg, $n) }}%
+                                    <span class="text-nema-muted">({{ $neg }})</span>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
 
-            <div class="no-scrollbar relative -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-                <a href="{{ request()->fullUrlWithQuery(['nada' => null, 'page' => null]) }}"
-                   @if (! $nada) aria-current="page" @endif
-                   class="inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm transition-colors {{ ! $nada ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
-                    Semua nada
-                </a>
+            <div class="mt-14 flex flex-wrap items-baseline justify-between gap-4">
+                <h2 class="text-xl sm:text-2xl">
+                    {{ $kategori ? $namaKategori[$kategori] : 'Semua masukan' }}
+                    <span class="text-nema-muted">({{ $latestFeedbacks->total() }})</span>
+                </h2>
 
-                @foreach ($namaSentimen as $nilai => $label)
-                    @continue (! ($summary[$nilai] ?? 0))
+                {{-- Saringan nada. Saringan bagian layanan dipilih lewat tabel di atas. --}}
+                <div class="no-scrollbar relative -mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                    @php
+                        $pilihanNada = collect(['' => 'Semua nada', 'negative' => 'Negatif', 'neutral' => 'Netral', 'positive' => 'Positif'])
+                            ->filter(fn ($label, $kunci) => $kunci === '' || ($summary[$kunci] ?? 0));
+                    @endphp
 
-                    <a href="{{ request()->fullUrlWithQuery(['nada' => $nilai, 'page' => null]) }}"
-                       @if ($nada === $nilai) aria-current="page" @endif
-                       class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 text-sm transition-colors {{ $nada === $nilai ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">
-                        @isset ($warnaSentimen[$nilai])
-                            <span class="size-2.5 shrink-0 rounded-sm {{ $warnaSentimen[$nilai] }}" aria-hidden="true"></span>
-                        @endisset
-                        {{ $label }} ({{ $summary[$nilai] }})
-                    </a>
-                @endforeach
-            </div>
+                    @foreach ($pilihanNada as $kunci => $label)
+                        @php $aktif = $nada === ($kunci ?: null); @endphp
 
-            <p class="mt-4 text-sm text-nema-muted" aria-live="polite">
-                {{ $latestFeedbacks->total() }} masukan
-                {{ $kategori ? 'di bagian ' . mb_strtolower($namaKategori[$kategori]) : '' }}
-                {{ $nada ? 'bernada ' . mb_strtolower($namaSentimen[$nada]) : '' }}
-            </p>
-
-            @if ($latestFeedbacks->isEmpty())
-                <div class="mt-4 rounded-xl bg-nema-surface px-6 py-10 text-center">
-                    <p>Tidak ada masukan yang cocok dengan saringan ini.</p>
-                    <a href="{{ url('/admin/feedback') }}"
-                       class="mt-4 inline-flex min-h-11 items-center rounded-md border border-nema-line px-5 text-sm transition-colors hover:bg-nema-surface-2">
-                        Tampilkan semua masukan
-                    </a>
+                        <a href="{{ $jalur }}?{{ http_build_query(array_filter(['kategori' => $kategori, 'nada' => $kunci])) }}"
+                           @if ($aktif) aria-current="page" @endif
+                           class="inline-flex min-h-11 shrink-0 items-center rounded-full px-4 text-sm transition-colors {{ $aktif ? 'bg-nema-maroon text-white' : 'text-nema-muted hover:bg-nema-surface' }}">
+                            {{ $label }}
+                            @if ($kunci)
+                                <span class="ml-1.5 {{ $aktif ? 'text-white/75' : '' }}">{{ $persen($summary[$kunci], $total) }}%</span>
+                            @endif
+                        </a>
+                    @endforeach
                 </div>
+            </div>
+
+            @if ($kategori || $nada)
+                <p class="mt-3 text-sm text-nema-muted">
+                    Saringan sedang aktif.
+                    <a href="{{ $jalur }}" class="text-nema-accent hover:underline">Tampilkan semua masukan</a>
+                </p>
             @endif
 
-            <ul class="mt-4 space-y-4">
-                @foreach ($latestFeedbacks as $masukan)
-                    <li class="rounded-xl bg-nema-surface p-5">
-                        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                            <span class="font-medium">{{ $masukan->user?->name ?? 'Akun sudah dihapus' }}</span>
-                            <span class="text-sm text-nema-muted">
-                                {{ $namaKategori[$masukan->category] ?? $masukan->category }}
-                                &middot; {{ $masukan->created_at->translatedFormat('d/m/Y H:i') }}
-                            </span>
-
-                            {{-- Nada masukan ditulis sebagai teks, bukan hanya warna, supaya tetap terbaca. --}}
-                            <span class="ml-auto inline-flex min-h-7 items-center rounded-md bg-nema-surface-2 px-2.5 text-xs">
-                                {{ $namaSentimen[$masukan->sentiment] ?? $masukan->sentiment }}
-                                @if ($masukan->confidence)
-                                    <span class="ml-1 text-nema-muted">{{ round($masukan->confidence * 100) }}% yakin</span>
+            @if ($latestFeedbacks->isEmpty())
+                <p class="mt-8 rounded-xl bg-nema-surface px-6 py-10 text-center text-nema-muted">
+                    Tidak ada masukan yang cocok dengan saringan ini.
+                </p>
+            @else
+                <ul class="mt-6 space-y-8">
+                    @foreach ($latestFeedbacks as $m)
+                        {{-- Garis di kiri menandai nada, jadi satu keluhan tetap kelihatan waktu halaman digulir cepat. --}}
+                        <li class="border-l-2 pl-5 {{ $m->sentiment === 'negative' ? 'border-usia-dewasa' : ($m->sentiment === 'positive' ? 'border-usia-semua' : 'border-nema-line') }}">
+                            <p class="text-xs text-nema-muted">
+                                {{ $namaKategori[$m->category] ?? $m->category }}
+                                &middot; {{ $namaSentimen[$m->sentiment] ?? $m->sentiment }}
+                                @if ($m->confidence)
+                                    <span title="Tingkat keyakinan model">({{ round($m->confidence * 100) }}% yakin)</span>
                                 @endif
-                            </span>
-                        </div>
+                            </p>
 
-                        <p class="mt-3 whitespace-pre-line">{{ $masukan->comment }}</p>
-                    </li>
-                @endforeach
-            </ul>
+                            <p class="mt-2 text-lg leading-relaxed">{{ $m->comment }}</p>
 
-            <div class="mt-8">
-                {{ $latestFeedbacks->links('partials.halaman') }}
-            </div>
-        @endif
+                            <p class="mt-2 text-xs text-nema-muted">
+                                {{ $m->user?->name ?? 'Akun sudah dihapus' }}
+                                &middot; {{ $m->created_at->translatedFormat('d F Y, H:i') }}
+                            </p>
+                        </li>
+                    @endforeach
+                </ul>
 
-    </div>
+                <div class="mt-10">{{ $latestFeedbacks->links('partials.halaman') }}</div>
+            @endif
+
+        </div>
+    @endif
 
 @endsection
