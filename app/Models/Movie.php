@@ -26,12 +26,6 @@ class Movie extends Model
         return $this->hasMany(Showtime::class);
     }
 
-    // relasi ke tabel log activity machine learning (One-to-many)
-    public function userEvents(): HasMany
-    {
-        return $this->hasMany(UserEvent::class);
-    }
-
     // Isi kartu film yang sama untuk beranda dan halaman /film, supaya keterangan di bawah
     // poster tidak pernah berbeda di dua tempat itu. Relasi genres harus sudah dimuat.
     public function kartu(): array

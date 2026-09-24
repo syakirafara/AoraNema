@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Booking;
 use App\Models\User;
-use App\Models\UserEvent;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -32,18 +32,19 @@ class AoranemaMlService
      */
     public function getRecommendationsForUser(User $user, $candidates, $movieCatalog): array
     {
-        // 1. Cek Riwayat Interaksi (menggunakan UserEvent dengan event_type = 'rate')
-        $userEvents = UserEvent::where('user_id', $user->id)
-                               ->where('event_type', 'rate')
+        // 1. Cek Riwayat Interaksi (nilai bintang yang diberikan user di pesanannya)
+        $pesananDinilai = Booking::with('showtime')
+                               ->where('user_id', $user->id)
+                               ->whereNotNull('rating')
                                ->get();
                                
         $interactions = [];
         $favorite_movie_ids = [];
 
-        foreach ($userEvents->groupBy('movie_id') as $movieId => $nilaiFilm) {
+        foreach ($pesananDinilai->groupBy('showtime.movie_id') as $movieId => $nilaiFilm) {
             $interactions[] = [
                 'movie_id' => $movieId,
-                'rating' => round($nilaiFilm->avg(fn ($e) => (float) $e->event_value), 2),
+                'rating' => round($nilaiFilm->avg('rating'), 2),
             ];
             $favorite_movie_ids[] = $movieId;
         }

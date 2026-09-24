@@ -59,9 +59,10 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
         $film = \App\Models\Movie::with('genres')
             // Jadwal yang belum lewat. Ini yang menunjukkan film mana masih memakan slot studio.
             ->withCount(['showtimes as jadwal_mendatang' => fn ($q) => $q->where('show_time', '>=', now())])
-            // Tiket terjual dihitung dari pesanan yang sudah dibayar, lewat jadwalnya.
+            // Tiket terjual dihitung dari kursi di pesanan yang sudah dibayar, lewat jadwalnya.
             ->addSelect(['tiket_terjual' => \App\Models\Booking::query()
                 ->selectRaw('count(*)')
+                ->join('booking_seat', 'booking_seat.booking_id', '=', 'bookings.id')
                 ->join('showtimes', 'showtimes.id', '=', 'bookings.showtime_id')
                 ->whereColumn('showtimes.movie_id', 'movies.id')
                 ->where('bookings.status', 'paid'),
@@ -243,7 +244,12 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
 
         return view('admin.jadwal.index', [
             'jadwal' => \App\Models\Showtime::with(['movie', 'studio'])
-                ->withCount('bookings')
+                // Kursi yang sudah masuk pesanan jadwal ini. Satu pesanan bisa berisi beberapa kursi.
+                ->addSelect(['kursi_terisi' => \App\Models\Booking::query()
+                    ->selectRaw('count(*)')
+                    ->join('booking_seat', 'booking_seat.booking_id', '=', 'bookings.id')
+                    ->whereColumn('bookings.showtime_id', 'showtimes.id'),
+                ])
                 ->orderByDesc('show_time')
                 ->paginate(20),
             'adaFilm' => $adaFilm,
@@ -370,7 +376,7 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
 
     Route::get('/pesanan', function () {
         return view('admin.pesanan.index', [
-            'pesanan' => \App\Models\Booking::with(['user', 'seat', 'showtime.movie', 'showtime.studio'])
+            'pesanan' => \App\Models\Booking::with(['user', 'seats', 'showtime.movie', 'showtime.studio'])
                 ->orderByDesc('id')
                 ->paginate(25),
         ]);
@@ -485,11 +491,11 @@ function susunKursi(\App\Models\Studio $studio, int $baris, int $perBaris): void
 }
 
 // Studio yang kursinya sudah dipesan tidak boleh diubah susunannya, karena
-// menghapus kursi ikut menghapus pesanan yang menempel padanya.
+// menghapus kursi ikut menghapusnya dari pesanan yang memakainya.
 function studioTerkunci(\App\Models\Studio $studio): bool
 {
     return $studio->exists
-        && \App\Models\Booking::whereIn('seat_id', $studio->seats()->select('id'))->exists();
+        && \App\Models\Booking::whereHas('seats', fn ($q) => $q->where('studio_id', $studio->id))->exists();
 }
 
 // Satu studio tidak boleh memutar dua film yang waktunya bertabrakan, termasuk jeda bersih-bersih.

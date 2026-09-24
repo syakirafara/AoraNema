@@ -75,11 +75,11 @@
                             </td>
 
                             <td class="py-4 pr-4 text-nema-muted">
-                                {{ $j->bookings_count }} kursi
+                                {{ $j->kursi_terisi }} kursi
                             </td>
 
                             <td class="py-4">
-                                @if ($j->bookings_count)
+                                @if ($j->kursi_terisi)
                                     {{-- Jadwal yang sudah dipesan tidak bisa diubah atau dihapus, supaya tiket penonton tetap sah. --}}
                                     <p class="text-right text-sm text-nema-muted">Terkunci, sudah dipesan</p>
                                 @else

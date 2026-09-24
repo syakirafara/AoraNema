@@ -4,33 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Booking extends Model
 {
     protected $guarded = ['id'];
 
-    // Tiket ini dipesan oleh satu user
+    // Pesanan ini dibuat oleh satu user
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    // Tiket ini untuk satu jadwal tayang spesifik
+    // Pesanan ini untuk satu jadwal tayang spesifik
     public function showtime(): BelongsTo
     {
         return $this->belongsTo(Showtime::class);
     }
 
-    // Tiket ini mengunci satu kursi spesifik
-    public function seat(): BelongsTo
+    // Kursi yang dipesan, lewat tabel penghubung booking_seat
+    public function seats(): BelongsToMany
     {
-        return $this->belongsTo(Seat::class);
-    }
-
-    // Satu tiket memiliki satu riwayat tagihan pembayaran (Midtrans)
-    public function payment(): HasOne
-    {
-        return $this->hasOne(Payment::class);
+        return $this->belongsToMany(Seat::class);
     }
 }

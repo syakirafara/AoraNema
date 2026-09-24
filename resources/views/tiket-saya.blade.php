@@ -83,7 +83,7 @@
                         </div>
 
                         @if ($p['bisaDinilai'])
-                            @php $nilaiku = $penilaian[$p['kode']] ?? null; @endphp
+                            @php $nilaiku = $p['nilai']; @endphp
 
                             {{-- Tiap bintang tombol kirim sendiri: satu klik langsung menyimpan,
                                  bisa dijangkau dengan Tab, dan tetap jalan tanpa JavaScript. --}}

@@ -22,7 +22,7 @@
                         <th class="py-3 pr-4 font-normal">Film</th>
                         <th class="py-3 pr-4 font-normal">Jadwal</th>
                         <th class="py-3 pr-4 font-normal">Kursi</th>
-                        <th class="py-3 pr-4 font-normal">Harga</th>
+                        <th class="py-3 pr-4 font-normal">Total</th>
                         <th class="py-3 font-normal">Status</th>
                     </tr>
                 </thead>
@@ -47,10 +47,10 @@
                                 @endif
                             </td>
 
-                            <td class="py-4 pr-4">{{ $p->seat?->seat_number ?? '—' }}</td>
+                            <td class="py-4 pr-4">{{ $p->seats->pluck('seat_number')->sort(SORT_NATURAL)->implode(', ') ?: '—' }}</td>
 
                             <td class="py-4 pr-4 text-nema-muted">
-                                Rp {{ number_format($p->price, 0, ',', '.') }}
+                                Rp {{ number_format($p->total_price, 0, ',', '.') }}
                             </td>
 
                             <td class="py-4">{{ $p->status }}</td>
