@@ -21,11 +21,13 @@ class UserSeeder extends Seeder
             'role' => 'admin',
         ]);
 
-        // Buat akun Penonton
+        // Buat akun Penonton. Genre favorit diisi supaya rekomendasi di beranda langsung
+        // muncul, karena layanan ML butuh minimal satu genre favorit atau satu nilai film.
         User::create([
             'name' => 'Penonton Setia',
             'email' => 'user@aoranema.com',
             'password' => Hash::make('password123'),
+            'favorite_genres' => ['Action', 'Adventure', 'Science Fiction'],
         ]);
     }
 }
