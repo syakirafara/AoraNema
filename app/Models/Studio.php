@@ -45,10 +45,10 @@ class Studio extends Model
         return $this->name === $this->format ? $this->name : $this->format . ', ' . $this->name;
     }
 
-    // Harga per kursi di studio ini pada tanggal tertentu. Akhir pekan dihitung Jumat sampai
-    // Minggu, seperti kebanyakan bioskop di Indonesia.
+    // Harga per kursi di studio ini pada tanggal tertentu. Sabtu dan Minggu memakai tarif akhir pekan,
+    // Senin sampai Jumat memakai tarif hari biasa.
     public function hargaUntuk(\Carbon\CarbonInterface $tanggal): int
     {
-        return in_array($tanggal->dayOfWeek, [5, 6, 0]) ? $this->harga_akhir_pekan : $this->harga_biasa;
+        return $tanggal->isWeekend() ? $this->harga_akhir_pekan : $this->harga_biasa;
     }
 }

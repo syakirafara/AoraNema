@@ -18,12 +18,18 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+    // role sengaja tidak ada di sini. Kalau ada, formulir yang mengirim role=admin bisa membuat
+    // akun admin. Akun baru otomatis berperan 'user' dari nilai bawaan kolomnya.
     protected $fillable = [
         'name',
         'email',
         'password',
-        'role',
         'favorite_genres',
+    ];
+
+    // Nilai bawaan untuk akun baru, sama dengan nilai bawaan kolomnya di database.
+    protected $attributes = [
+        'role' => 'user',
     ];
 
     /**

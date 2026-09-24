@@ -38,10 +38,13 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
+            // Transaksi langsung memegang kunci tulis, dan permintaan lain menunggu sampai 5 detik.
+            // Dengan begitu dua pemesanan kursi atau dua penyimpanan jadwal diproses bergantian,
+            // sama seperti lockForUpdate() di MySQL.
+            'busy_timeout' => 5000,
             'journal_mode' => null,
             'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
+            'transaction_mode' => 'IMMEDIATE',
         ],
 
         'mysql' => [

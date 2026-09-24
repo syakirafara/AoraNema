@@ -6,6 +6,12 @@
 
     @include('admin.nav')
 
+    @php
+        // Setelah isian ditolak, kotak centang mengikuti isian terakhir, bukan data film yang tersimpan.
+        // Kotak yang tidak dicentang tidak ikut terkirim, jadi old() saja tidak bisa membedakannya.
+        $adaIsianLama = session()->hasOldInput();
+    @endphp
+
     <div class="mx-auto max-w-2xl px-4 py-8 sm:px-6">
 
         <a href="{{ url('/admin/film') }}"
@@ -24,6 +30,12 @@
                     @endforeach
                 </ul>
             </div>
+        @endif
+
+        @if (session('gagal'))
+            <p role="alert" class="mt-6 rounded-lg border border-nema-accent bg-nema-surface p-4 text-sm">
+                {{ session('gagal') }}
+            </p>
         @endif
 
         <form method="post" action="{{ $movie->exists ? url('/admin/film/' . $movie->id) : url('/admin/film') }}"
@@ -70,9 +82,11 @@
             <div class="grid gap-6 sm:grid-cols-3">
                 <div>
                     <label for="duration_minutes" class="block text-sm">Durasi (menit)</label>
-                    <input type="number" id="duration_minutes" name="duration_minutes" min="1" max="600"
+                    <input type="number" id="duration_minutes" name="duration_minutes" min="30" max="300" required
+                        aria-describedby="durasi-ket"
                         value="{{ old('duration_minutes', $movie->duration_minutes) }}"
                         class="mt-2 block min-h-11 w-full rounded-md border border-nema-line bg-nema-surface px-4">
+                    <p id="durasi-ket" class="mt-2 text-xs text-nema-muted">Dipakai untuk menghitung kapan studio kosong lagi.</p>
                 </div>
 
                 <div>
@@ -107,7 +121,7 @@
                             <label
                                 class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-nema-line px-4 transition-colors hover:bg-nema-surface has-checked:border-nema-accent has-checked:bg-nema-surface">
                                 <input type="checkbox" name="genre[]" value="{{ $g->id }}"
-                                    @checked(in_array($g->id, old('genre', $movie->genres->pluck('id')->all()))) class="size-4 accent-nema-maroon">
+                                    @checked(in_array($g->id, $adaIsianLama ? old('genre', []) : $movie->genres->pluck('id')->all())) class="size-4 accent-nema-maroon">
                                 {{ $g->name }}
                             </label>
                         @endforeach
@@ -115,14 +129,19 @@
                 @endif
             </fieldset>
 
-            <label class="inline-flex min-h-11 cursor-pointer items-center gap-3">
-                <input type="checkbox" name="is_showing" value="1" @checked(old('is_showing', $movie->exists ? $movie->is_showing : true))
-                    class="size-5 accent-nema-maroon">
-                <span>Sedang tayang</span>
+            <label class="flex min-h-11 cursor-pointer items-start gap-3">
+                <input type="checkbox" name="is_showing" value="1" @checked($adaIsianLama ? old('is_showing') : ($movie->exists ? $movie->is_showing : true))
+                    class="mt-0.5 size-5 shrink-0 accent-nema-maroon">
+                <span>
+                    Sedang tayang
+                    <span class="mt-1 block text-xs text-nema-muted">
+                        Hilangkan centang untuk mengarsipkan film. Jadwal mendatangnya yang belum dipesan ikut dihapus.
+                    </span>
+                </span>
             </label>
 
             <label class="flex min-h-11 cursor-pointer items-start gap-3">
-                <input type="checkbox" name="pilihan" value="1" @checked(old('pilihan', $movie->pilihan))
+                <input type="checkbox" name="pilihan" value="1" @checked($adaIsianLama ? old('pilihan') : $movie->pilihan)
                     class="mt-0.5 size-5 shrink-0 accent-nema-maroon">
                 <span>
                     Dipilih pengelola

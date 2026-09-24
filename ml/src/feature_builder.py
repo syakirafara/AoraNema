@@ -128,6 +128,38 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
 
 
+# TMDB -> vocabulary MovieLens yang dipakai saat training.
+# Tabel genres di Laravel memakai nama TMDB (en-US).
+TMDB_GENRE_MAP = {
+    "science fiction": "Sci-Fi",
+    "family": "Children",
+    "music": "Musical",
+}
+
+
+def canonical_genre(
+    name: Any,
+    genre_by_lower: Mapping[str, str],
+) -> Optional[str]:
+    """
+    Ubah satu nama genre (TMDB atau MovieLens, huruf besar/kecil bebas)
+    menjadi nama genre model.
+
+    genre_by_lower:
+        {"sci-fi": "Sci-Fi", "action": "Action", ...}
+
+    Return None jika genre tidak dikenal model, misalnya TMDB
+    "History" dan "TV Movie" yang tidak punya pasangan di MovieLens.
+    """
+    lower = str(name).strip().lower()
+
+    # Nama TMDB diterjemahkan dulu ke nama MovieLens.
+    if lower in TMDB_GENRE_MAP:
+        lower = TMDB_GENRE_MAP[lower].lower()
+
+    return genre_by_lower.get(lower)
+
+
 class FeatureBuilder:
     """
     Feature builder production untuk model recommendation final Aoranema.
@@ -169,13 +201,6 @@ class FeatureBuilder:
         "writer": ("n_writers",),
         "cast": ("n_top_cast", "n_cast"),
         "keyword": ("n_keywords",),
-    }
-
-    # TMDB -> vocabulary MovieLens yang dipakai saat training.
-    TMDB_GENRE_MAP = {
-        "science fiction": "Sci-Fi",
-        "family": "Children",
-        "music": "Musical",
     }
 
     def __init__(
@@ -739,16 +764,10 @@ class FeatureBuilder:
             if not text or text == "(no genres listed)":
                 continue
 
-            lower = text.lower()
-
-            if lower in self.TMDB_GENRE_MAP:
-                canonical = self.TMDB_GENRE_MAP[lower]
-            else:
-                canonical = self.genre_by_lower.get(lower)
-
             # TMDB "History" dan "TV Movie" tidak punya pasangan langsung
             # di vocabulary MovieLens model final, jadi diabaikan.
-            if canonical in self.genres:
+            canonical = canonical_genre(text, self.genre_by_lower)
+            if canonical is not None:
                 result.append(canonical)
 
         return list(dict.fromkeys(result))
@@ -1034,5 +1053,7 @@ def load_feature_builder(
 __all__ = [
     "FeatureBatch",
     "FeatureBuilder",
+    "TMDB_GENRE_MAP",
+    "canonical_genre",
     "load_feature_builder",
 ]

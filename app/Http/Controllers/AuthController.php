@@ -55,7 +55,8 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            // bcrypt hanya membaca 72 byte pertama, jadi kata sandi yang lebih panjang ditolak.
+            'password' => ['required', 'string', 'min:8', 'max:72', 'confirmed'],
             'genres' => ['nullable', 'array'],
             'genres.*' => ['integer', 'exists:genres,id'],
         ]);
@@ -64,7 +65,6 @@ class AuthController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => \Illuminate\Support\Facades\Hash::make($data['password']),
-            'role' => 'user',
             // Formulir mengirim id genre, yang disimpan di akun adalah namanya.
             'favorite_genres' => \App\Models\Genre::whereIn('id', $data['genres'] ?? [])->pluck('name')->all(),
         ]);

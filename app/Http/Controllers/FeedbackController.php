@@ -25,7 +25,9 @@ class FeedbackController extends Controller
     public function store(Request $request, AoranemaMlService $ml)
     {
         $validated = $request->validate([
-            'feedbacks' => ['required', 'array', 'min:1'],
+            // Formulir menampung paling banyak lima masukan sekali kirim. Batas ini juga dicek di
+            // server, karena tiap masukan dianalisis satu per satu oleh layanan ML.
+            'feedbacks' => ['required', 'array', 'min:1', 'max:5'],
             'feedbacks.*.category' => [
                 'required',
                 'string',

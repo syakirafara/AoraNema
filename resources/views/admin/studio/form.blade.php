@@ -28,8 +28,9 @@
 
         @if ($terkunci)
             <p class="mt-6 rounded-lg border border-nema-line bg-nema-surface p-4 text-sm text-nema-muted">
-                Studio ini sudah punya pesanan, jadi susunan kursinya dikunci. Mengubahnya akan
-                menghapus kursi lama beserta pesanan yang menempel di situ. Nama studio tetap bisa diubah.
+                Studio ini punya jadwal mendatang yang sudah dipesan, jadi format dan susunan kursinya
+                dikunci. Penonton sudah membeli tiket untuk format dan kursi itu. Nama dan tarif tetap bisa
+                diubah; kuncinya terbuka lagi setelah jadwal-jadwal itu lewat.
             </p>
         @endif
 
@@ -53,8 +54,8 @@
 
             <div>
                 <label for="format" class="block text-sm">Format layar</label>
-                <select id="format" name="format" required
-                        class="mt-2 block min-h-11 w-full rounded-md border border-nema-line bg-nema-surface px-4">
+                <select id="format" name="format" required @disabled($terkunci)
+                        class="mt-2 block min-h-11 w-full rounded-md border border-nema-line bg-nema-surface px-4 disabled:opacity-40">
                     @foreach (\App\Models\Studio::FORMAT as $f)
                         <option value="{{ $f }}" @selected(old('format', $studio->format ?? 'Regular 2D') === $f)>{{ $f }}</option>
                     @endforeach
@@ -88,14 +89,14 @@
                 <legend class="mb-3 text-sm">Harga per kursi, dalam rupiah tanpa titik</legend>
 
                 <div>
-                    <label for="harga_biasa" class="block text-sm text-nema-muted">Senin sampai Kamis</label>
+                    <label for="harga_biasa" class="block text-sm text-nema-muted">Senin sampai Jumat</label>
                     <input type="number" id="harga_biasa" name="harga_biasa" min="0" max="1000000" step="1000" required
                            value="{{ old('harga_biasa', $studio->harga_biasa ?? 45000) }}"
                            class="mt-2 block min-h-11 w-full rounded-md border border-nema-line bg-nema-surface px-4">
                 </div>
 
                 <div>
-                    <label for="harga_akhir_pekan" class="block text-sm text-nema-muted">Jumat sampai Minggu</label>
+                    <label for="harga_akhir_pekan" class="block text-sm text-nema-muted">Sabtu dan Minggu</label>
                     <input type="number" id="harga_akhir_pekan" name="harga_akhir_pekan" min="0" max="1000000" step="1000" required
                            value="{{ old('harga_akhir_pekan', $studio->harga_akhir_pekan ?? 55000) }}"
                            class="mt-2 block min-h-11 w-full rounded-md border border-nema-line bg-nema-surface px-4">
@@ -103,8 +104,8 @@
             </fieldset>
 
             <p class="text-sm text-nema-muted">
-                Mengubah harga ikut mengubah jadwal studio ini yang belum lewat. Harga di pesanan
-                yang sudah dibuat tidak berubah.
+                Tarif baru berlaku untuk tiket yang dijual berikutnya, termasuk jadwal studio ini yang
+                belum lewat. Harga di pesanan yang sudah dibuat tidak berubah.
             </p>
 
             <p class="text-sm text-nema-muted">

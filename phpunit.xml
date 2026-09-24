@@ -32,5 +32,10 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Tes tidak memanggil layanan luar: Midtrans dan TMDB dimatikan, layanan ML diarahkan ke port kosong. -->
+        <env name="MIDTRANS_SERVER_KEY" value=""/>
+        <env name="TMDB_API_KEY" value=""/>
+        <env name="ML_API_URL" value="http://127.0.0.1:9"/>
+        <env name="APP_LOCALE" value="id"/>
     </php>
 </phpunit>

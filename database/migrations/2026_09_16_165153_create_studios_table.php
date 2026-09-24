@@ -22,7 +22,7 @@ return new class extends Migration
             $table->integer('baris');
             $table->integer('kursi_per_baris');
             // harga per kursi ditentukan studio dan harinya, bukan jam tayangnya.
-            // akhir pekan dihitung Jumat sampai Minggu, seperti kebanyakan bioskop di Indonesia
+            // akhir pekan dihitung Sabtu dan Minggu
             $table->integer('harga_biasa')->default(45000);
             $table->integer('harga_akhir_pekan')->default(55000);
             $table->timestamps();

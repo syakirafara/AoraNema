@@ -109,16 +109,22 @@
                             </form>
                         @endif
 
-                        {{-- Tiket yang sudah lewat atau dibatalkan tidak menampilkan kode batang lagi,
-                             supaya tidak bisa dipindai ulang di pintu masuk. --}}
-                        @if ($p['aktif'])
-                            <div class="mt-4 border-t border-nema-line/40 pt-4 sm:flex sm:justify-end">
+                        {{-- Tiket yang sudah lewat atau dibatalkan tetap bisa dibuka rinciannya sebagai bukti
+                             pembelian, tapi halamannya tidak menampilkan kode batang, supaya tidak bisa
+                             dipindai ulang di pintu masuk. --}}
+                        <div class="mt-4 border-t border-nema-line/40 pt-4 sm:flex sm:justify-end">
+                            @if ($p['aktif'])
                                 <a href="{{ url('/tiket/' . $p['kode']) }}"
                                    class="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-nema-maroon px-6 font-medium text-white transition-colors hover:bg-nema-maroon-hover sm:w-auto">
                                     Lihat tiket
                                 </a>
-                            </div>
-                        @endif
+                            @else
+                                <a href="{{ url('/tiket/' . $p['kode']) }}"
+                                   class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-nema-line px-6 transition-colors hover:bg-nema-surface-2 sm:w-auto">
+                                    Lihat rincian
+                                </a>
+                            @endif
+                        </div>
                     </li>
                 @endforeach
             </ul>
@@ -133,7 +139,7 @@
 
                 @if ($tab === 'aktif')
                     <p class="mt-5 text-lg">Belum ada tiket untuk ditonton</p>
-                    <p class="mt-2 text-sm text-nema-muted">Tiket yang kamu pesan akan muncul di sini sampai jam tayangnya lewat.</p>
+                    <p class="mt-2 text-sm text-nema-muted">Tiket yang kamu pesan akan muncul di sini sampai filmnya selesai.</p>
 
                     <a href="{{ url('/film?status=tayang') }}"
                        class="mt-6 inline-flex min-h-11 items-center rounded-md border border-nema-line px-6 transition-colors hover:bg-nema-surface-2">

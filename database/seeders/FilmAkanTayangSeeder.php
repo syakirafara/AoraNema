@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 // Menambah film yang akan tayang dari daftar "Upcoming" TMDB, supaya bagian Akan Tayang di
 // beranda dan saringan Segera Tayang di /film ada isinya. MovieSeeder hanya mengambil film yang
 // sedang tayang, jadi tanggal rilisnya sudah lewat semua.
-// Jalankan dengan: php artisan db:seed --class=FilmAkanTayangSeeder
+// Dipanggil DatabaseSeeder, dan bisa dijalankan sendiri: php artisan db:seed --class=FilmAkanTayangSeeder
 // Film yang sudah ada di database tidak diubah, supaya isian admin seperti sinopsis tidak tertimpa.
 class FilmAkanTayangSeeder extends Seeder
 {
@@ -17,7 +17,7 @@ class FilmAkanTayangSeeder extends Seeder
 
     public function run(): void
     {
-        $kunci = env('TMDB_API_KEY');
+        $kunci = config('services.tmdb.key');
 
         if (! $kunci) {
             $this->command->error('GAGAL: TMDB_API_KEY belum dipasang di .env');
@@ -53,15 +53,21 @@ class FilmAkanTayangSeeder extends Seeder
 
             $detail = Http::timeout(30)->get("https://api.themoviedb.org/3/movie/{$f['id']}", ['api_key' => $kunci, 'language' => 'id-ID'])->json();
 
-            // Sinopsis bahasa Indonesia sering belum ada di TMDB. Kalau kosong, dipakai versi
-            // bahasa Inggrisnya supaya halaman detail tidak menulis "Sinopsis belum tersedia".
-            $sinopsis = $f['overview'] ?: Http::timeout(30)
-                ->get("https://api.themoviedb.org/3/movie/{$f['id']}", ['api_key' => $kunci, 'language' => 'en-US'])
-                ->json('overview');
+            $judul = $f['title'];
+            $sinopsis = $f['overview'];
+
+            // Sinopsis bahasa Indonesia sering belum ada di TMDB, dan film yang belum diterjemahkan
+            // judulnya masih memakai huruf aslinya, misalnya huruf Thailand. Untuk film seperti itu
+            // dipakai versi bahasa Inggrisnya.
+            if (! $sinopsis || ! preg_match('/\p{Latin}/u', $judul)) {
+                $inggris = Http::timeout(30)->get("https://api.themoviedb.org/3/movie/{$f['id']}", ['api_key' => $kunci, 'language' => 'en-US'])->json();
+                $sinopsis = $sinopsis ?: ($inggris['overview'] ?? null);
+                $judul = preg_match('/\p{Latin}/u', $judul) ? $judul : ($inggris['title'] ?? $judul);
+            }
 
             $film = Movie::create([
                 'tmdb_id' => $f['id'],
-                'title' => $f['title'],
+                'title' => $judul,
                 'synopsis' => $sinopsis ?: null,
                 'poster_url' => "https://image.tmdb.org/t/p/w500{$f['poster_path']}",
                 'duration_minutes' => ($detail['runtime'] ?? 0) ?: null,
@@ -71,7 +77,7 @@ class FilmAkanTayangSeeder extends Seeder
 
             $film->genres()->sync($f['genre_ids'] ?? []);
             $ditambah++;
-            $this->command->info("Tersimpan: {$f['title']} (rilis {$f['release_date']})");
+            $this->command->info("Tersimpan: {$judul} (rilis {$f['release_date']})");
         }
 
         $this->command->info("SELESAI: {$ditambah} film akan tayang ditambahkan.");

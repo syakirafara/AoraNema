@@ -59,17 +59,17 @@ class StudioController extends Controller
     public function update(Request $request, Studio $studio)
     {
         $terkunci = $this->terkunci($studio);
-        $data = $this->aturan($request, $terkunci);
+        $data = $this->aturan($request, $terkunci, $studio);
 
         $studio->update([
             'name' => $data['name'],
-            'format' => $data['format'],
             'harga_biasa' => $data['harga_biasa'],
             'harga_akhir_pekan' => $data['harga_akhir_pekan'],
         ]);
 
         if (! $terkunci) {
             $studio->update([
+                'format' => $data['format'],
                 'baris' => $data['baris'],
                 'kursi_per_baris' => $data['per_baris'],
             ]);
@@ -78,17 +78,19 @@ class StudioController extends Controller
         return redirect('/admin/studio')->with(
             'sukses',
             'Studio "' . $studio->name . '" disimpan.'
-                . ($terkunci ? ' Susunan kursinya dibiarkan karena sudah ada pesanan.' : '')
+                . ($terkunci ? ' Format dan susunan kursinya dibiarkan karena ada jadwal mendatang yang sudah dipesan.' : '')
         );
     }
 
     public function destroy(Studio $studio)
     {
+        // Menghapus studio ikut menghapus jadwal dan pesanannya (cascadeOnDelete), termasuk riwayat
+        // tiket penonton. Jadi hanya studio yang belum pernah punya jadwal yang boleh dihapus.
         if ($studio->showtimes()->exists()) {
             return redirect('/admin/studio')->with(
                 'gagal',
-                'Studio "' . $studio->name . '" masih dipakai jadwal tayang, jadi tidak dihapus. '
-                    . 'Hapus jadwalnya dulu.'
+                'Studio "' . $studio->name . '" sudah punya jadwal tayang, jadi tidak dihapus supaya riwayat '
+                    . 'tiketnya tidak ikut hilang.'
             );
         }
 
@@ -98,18 +100,19 @@ class StudioController extends Controller
         return redirect('/admin/studio')->with('sukses', 'Studio "' . $nama . '" dihapus.');
     }
 
-    // Saat studio terkunci, ukuran ruangnya tidak ikut diperiksa karena isiannya
+    // Saat studio terkunci, format dan ukuran ruangnya tidak ikut diperiksa karena isiannya
     // dimatikan di halaman sehingga tidak terkirim.
-    private function aturan(Request $request, bool $terkunci = false): array
+    private function aturan(Request $request, bool $terkunci = false, ?Studio $studio = null): array
     {
         $aturan = [
-            'name' => ['required', 'string', 'max:255'],
-            'format' => ['required', Rule::in(Studio::FORMAT)],
+            // Nama studio tampil di tiket, jadi tidak boleh kembar.
+            'name' => ['required', 'string', 'max:255', Rule::unique('studios', 'name')->ignore($studio)],
             'harga_biasa' => ['required', 'integer', 'min:0', 'max:1000000'],
             'harga_akhir_pekan' => ['required', 'integer', 'min:0', 'max:1000000'],
         ];
 
         if (! $terkunci) {
+            $aturan['format'] = ['required', Rule::in(Studio::FORMAT)];
             $aturan['baris'] = ['required', 'integer', 'min:1', 'max:26'];
             $aturan['per_baris'] = ['required', 'integer', 'min:1', 'max:30'];
         }
@@ -123,10 +126,13 @@ class StudioController extends Controller
         ]);
     }
 
-    // Studio yang kursinya sudah dipesan tidak boleh diubah susunannya, karena
-    // nomor kursi di pesanan itu bisa hilang dari denah yang baru.
+    // Studio yang punya jadwal mendatang dengan pesanan aktif tidak boleh diubah format dan susunan
+    // kursinya, karena penonton sudah membeli tiket untuk format dan nomor kursi itu. Pesanan yang
+    // sudah lewat tidak mengunci, karena nomor kursinya tersimpan sebagai teks di pesanan.
     private function terkunci(Studio $studio): bool
     {
-        return Booking::whereHas('showtime', fn ($q) => $q->where('studio_id', $studio->id))->exists();
+        return Booking::where('status', '!=', Booking::BATAL)
+            ->whereHas('showtime', fn ($q) => $q->where('studio_id', $studio->id)->where('show_time', '>=', now()))
+            ->exists();
     }
 }

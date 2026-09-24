@@ -26,12 +26,8 @@
             return (int) $hari . ' ' . $namaBulan[(int) $bln] . ' ' . $tahun;
         };
 
-        $hariIni = now()->startOfDay();
-
-        $daftarTanggal = [];
-        for ($i = 0; $i < 6; $i++) {
-            $daftarTanggal[] = $hariIni->copy()->addDays($i);
-        }
+        $rp = fn ($n) => 'Rp ' . number_format($n, 0, ',', '.');
+        $biayaLayanan = \App\Models\Booking::BIAYA_LAYANAN;
 
         $adaPoster = !empty($film['poster']);
     @endphp
@@ -94,6 +90,12 @@
 
             <div class="min-w-0">
 
+                @if (session('error'))
+                    <p role="alert" class="mb-6 rounded-lg border border-nema-accent bg-nema-surface p-4 text-sm">
+                        {{ session('error') }}
+                    </p>
+                @endif
+
                 @if ($film['mulai'])
 
                     <div class="rounded-xl border border-nema-line bg-nema-surface p-6 sm:p-8">
@@ -146,7 +148,7 @@
                                     Lihat jadwal {{ $b->isTomorrow() ? 'besok' : $namaHari[$b->dayOfWeek] . ' ' . $b->day }}
                                 </a>
                             @else
-                                <p class="mt-2 text-sm text-nema-muted">Film ini belum punya jadwal dalam enam hari ke depan.</p>
+                                <p class="mt-2 text-sm text-nema-muted">Film ini belum punya jadwal dalam {{ \App\Models\Showtime::HARI_DIJUAL }} hari ke depan.</p>
                             @endif
                         </div>
                     @else
@@ -157,10 +159,7 @@
                                 <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                                     <h3 class="text-base">{{ $layar }}</h3>
                                     {{-- Harga ditentukan studio dan harinya, jadi semua jam di baris ini sama harganya. --}}
-                                    @php
-                                        $harga = $daftarJam->map->harga();
-                                        $rp = fn ($n) => 'Rp ' . number_format($n, 0, ',', '.');
-                                    @endphp
+                                    @php $harga = $daftarJam->map->harga(); @endphp
                                     {{-- Beberapa studio bisa berformat sama tapi bertarif berbeda, jadi yang
                                          ditulis rentangnya. --}}
                                     <p class="text-sm text-nema-muted">
@@ -170,15 +169,25 @@
 
                                 <div class="mt-3 flex flex-wrap gap-2">
                                     @foreach ($daftarJam as $j)
-                                        {{-- Jam yang sudah lewat tetap terlihat supaya jadwal hari ini utuh,
-                                             tapi dimatikan karena sudah tidak bisa dipesan. --}}
+                                        @php
+                                            $sisa = $j->sisaKursi();
+                                            $ditutup = ! $j->masihDijual();
+                                        @endphp
+                                        {{-- Jam yang sudah lewat atau kursinya habis tetap terlihat supaya jadwal
+                                             hari ini utuh, tapi dimatikan karena sudah tidak bisa dipesan.
+                                             Sisa kursi baru ditulis kalau tinggal sedikit, seperti di bioskop. --}}
                                         <button type="button" data-jam="{{ $j->show_time->format('H:i') }}"
-                                            data-jadwal="{{ $j->id }}" data-harga="{{ $j->harga() }}" aria-pressed="false"
-                                            @disabled($j->show_time->isPast())
-                                            class="inline-flex min-h-11 min-w-20 items-center justify-center rounded-md border border-nema-line px-4 transition-colors hover:bg-nema-surface aria-pressed:border-nema-accent aria-pressed:bg-nema-maroon aria-pressed:text-white disabled:cursor-not-allowed disabled:border-nema-line/40 disabled:text-nema-muted/50 disabled:hover:bg-transparent">
+                                            data-jadwal="{{ $j->id }}" data-harga="{{ $j->harga() }}" data-sisa="{{ $sisa }}"
+                                            data-layar="{{ $j->studio->label() }}" aria-pressed="false"
+                                            @disabled($ditutup || $sisa < 1)
+                                            class="inline-flex min-h-11 min-w-20 flex-col items-center justify-center rounded-md border border-nema-line px-4 py-1 transition-colors hover:bg-nema-surface aria-pressed:border-nema-accent aria-pressed:bg-nema-maroon aria-pressed:text-white disabled:cursor-not-allowed disabled:border-nema-line/40 disabled:text-nema-muted/50 disabled:hover:bg-transparent">
                                             {{ $j->show_time->format('H:i') }}
-                                            @if ($j->show_time->isPast())
+                                            @if ($ditutup)
                                                 <span class="sr-only">, sudah lewat</span>
+                                            @elseif ($sisa < 1)
+                                                <span class="text-[11px] leading-tight">Penuh</span>
+                                            @elseif ($sisa <= 10)
+                                                <span class="text-[11px] leading-tight">Sisa {{ $sisa }}</span>
                                             @endif
                                         </button>
                                     @endforeach
@@ -190,7 +199,7 @@
                                 <div data-panel hidden class="mt-4 rounded-lg bg-nema-surface p-4 sm:p-5">
 
                                     <p class="text-sm text-nema-muted">
-                                        {{ $layar }}, <span data-ringkas-jam></span> &middot;
+                                        <span data-ringkas-layar></span>, <span data-ringkas-jam></span> &middot;
                                         {{ $tanggalIndo($tanggal->format('Y-m-d')) }}
                                     </p>
 
@@ -218,6 +227,7 @@
                                         <p class="text-right">
                                             <span class="block text-xs text-nema-muted">Total</span>
                                             <span data-total aria-live="polite" class="text-lg font-semibold"></span>
+                                            <span class="block text-xs text-nema-muted">Termasuk biaya layanan {{ $rp($biayaLayanan) }} per tiket</span>
                                         </p>
 
                                     </div>
@@ -233,7 +243,7 @@
                                         </a>
 
                                         <p class="mt-3 text-xs text-nema-muted">
-                                            Maksimal 6 tiket sekali pesan.
+                                            Maksimal {{ \App\Models\Booking::MAKS_KURSI }} tiket sekali pesan.
                                             @guest Kamu akan diminta masuk dulu sebelum memilih kursi. @endguest
                                         </p>
                                     @endif
@@ -275,12 +285,18 @@
 
         <script>
         (function () {
-            const MAKS = 6;
+            const MAKS = @json(\App\Models\Booking::MAKS_KURSI);
+            const BIAYA_LAYANAN = @json($biayaLayanan);
             const semuaBaris = document.querySelectorAll('[data-baris]');
             const dasar = @json(url('/kursi/' . $film['slug']));
 
             function rupiah(angka) {
                 return 'Rp ' + angka.toLocaleString('id-ID');
+            }
+
+            // Jumlah tiket paling banyak MAKS, atau sisa kursinya kalau tinggal lebih sedikit.
+            function batas(baris) {
+                return Math.min(MAKS, Number(baris.dataset.sisa));
             }
 
             function perbarui(baris, jumlah) {
@@ -289,9 +305,9 @@
 
                 baris.dataset.jumlah = jumlah;
                 baris.querySelector('[data-jumlah]').textContent = jumlah;
-                baris.querySelector('[data-total]').textContent = rupiah(harga * jumlah);
+                baris.querySelector('[data-total]').textContent = rupiah((harga + BIAYA_LAYANAN) * jumlah);
                 baris.querySelector('[data-kurang]').disabled = jumlah <= 1;
-                baris.querySelector('[data-tambah]').disabled = jumlah >= MAKS;
+                baris.querySelector('[data-tambah]').disabled = jumlah >= batas(baris);
 
                 // Akun admin tidak punya tombol lanjut.
                 if (lanjut) {
@@ -322,6 +338,8 @@
                         tombol.setAttribute('aria-pressed', 'true');
                         baris.dataset.jadwal = tombol.dataset.jadwal;
                         baris.dataset.harga = tombol.dataset.harga;
+                        baris.dataset.sisa = tombol.dataset.sisa;
+                        baris.querySelector('[data-ringkas-layar]').textContent = tombol.dataset.layar;
                         baris.querySelector('[data-ringkas-jam]').textContent = tombol.dataset.jam;
                         baris.querySelector('[data-panel]').hidden = false;
                         perbarui(baris, 1);
@@ -333,7 +351,7 @@
                 });
 
                 baris.querySelector('[data-tambah]').addEventListener('click', function () {
-                    perbarui(baris, Math.min(MAKS, Number(baris.dataset.jumlah || 1) + 1));
+                    perbarui(baris, Math.min(batas(baris), Number(baris.dataset.jumlah || 1) + 1));
                 });
             });
         })();

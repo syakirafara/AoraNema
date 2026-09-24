@@ -1,5 +1,6 @@
 @php
     /**
+     * @var \App\Models\Booking $pesanan
      * @var \App\Models\Movie $film
      * @var \Carbon\Carbon $tanggalCarbon
      */
@@ -32,7 +33,7 @@
                 'batal' => ['Pesanan dibatalkan', 'Tiket ini sudah tidak berlaku.'],
                 'belum-bayar' => ['Menunggu pembayaran', 'Kode masuk muncul di sini setelah pembayaran diterima.'],
                 'selesai' => ['Film sudah selesai', 'Tiket ini sudah lewat dan tidak bisa dipakai masuk lagi.'],
-                default => ['Tiketmu siap', 'Tunjukkan kode ini ke petugas di pintu masuk.'],
+                default => ['Tiketmu siap', 'Tunjukkan kode ini ke petugas di pintu studio. Film mulai sekitar ' . \App\Models\Showtime::IKLAN_MENIT . ' menit setelah jam tayang.'],
             };
         @endphp
 
@@ -79,16 +80,35 @@
                 </div>
                 <div>
                     <dt class="text-nema-muted">Kursi</dt>
-                    <dd class="mt-1">{{ implode(', ', $kursi) }}</dd>
+                    <dd class="mt-1">{{ implode(', ', $kursi) }} ({{ count($kursi) }} tiket)</dd>
+                </div>
+                <div>
+                    <dt class="text-nema-muted">Pemesan</dt>
+                    <dd class="mt-1">{{ $pesanan->user->name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-nema-muted">Dipesan</dt>
+                    <dd class="mt-1">{{ $pesanan->created_at->format('d/m/Y H:i') }}</dd>
                 </div>
                 <div>
                     <dt class="text-nema-muted">Cara bayar</dt>
                     <dd class="mt-1">{{ $namaMetode }}</dd>
                 </div>
                 <div>
-                    <dt class="text-nema-muted">Total dibayar</dt>
+                    {{-- Pesanan yang batal atau belum dibayar tidak pernah ditagih, jadi tidak ditulis "dibayar". --}}
+                    <dt class="text-nema-muted">{{ in_array($keadaan, ['aktif', 'selesai']) ? 'Total dibayar' : 'Total' }}</dt>
                     <dd class="mt-1">Rp {{ number_format($total, 0, ',', '.') }}</dd>
                 </div>
+                <div>
+                    <dt class="text-nema-muted">Status</dt>
+                    <dd class="mt-1">{{ $pesanan->namaStatus() }}</dd>
+                </div>
+                @if ($film->usia)
+                    <div class="col-span-2">
+                        <dt class="text-nema-muted">Batas usia</dt>
+                        <dd class="mt-1">{{ $film->usia === 'SU' ? 'Semua umur' : $film->usia . ', bawa kartu identitas' }}</dd>
+                    </div>
+                @endif
             </dl>
 
         </div>

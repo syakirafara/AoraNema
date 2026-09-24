@@ -23,8 +23,8 @@
         [$th, $bl, $hr] = explode('-', $tanggal->format('Y-m-d'));
         $tanggalTeks = $namaHari[$tanggal->dayOfWeek] . ', ' . (int) $hr . ' ' . $namaBulan[(int) $bl];
 
-        // Biaya layanan per tiket. Angka contoh, nanti jadi ketetapan pengelola.
-        $biayaLayanan = 3000;
+        // Biaya layanan per tiket. Angkanya sama dengan yang ditagihkan di BookingController::prosesBayar.
+        $biayaLayanan = \App\Models\Booking::BIAYA_LAYANAN;
 
         $jumlah = count($kursi);
         $subtotal = $jumlah * $harga;
@@ -33,8 +33,8 @@
 
         $adaPoster = !empty($film->poster_url);
 
-        // Tambahkan baris ini untuk membuat slug otomatis (misal: resident-evil-1)
-        $slugUrl = \Illuminate\Support\Str::slug($film->title) . '-' . $film->id;
+        // Alamat film, misalnya resident-evil-1
+        $slugUrl = $film->slug();
 
         $metode = [
             'qris' => ['nama' => 'QRIS', 'ket' => 'Pindai dengan aplikasi bank atau dompet digital apa pun'],
@@ -60,7 +60,8 @@
             </p>
         @endif
 
-        <form action="{{ url('/proses-bayar/' . $slugUrl) }}" method="POST"
+        {{-- data-sekali: tombol Bayar dimatikan begitu formulir dikirim, supaya pesanan tidak dibuat dua kali. --}}
+        <form action="{{ url('/proses-bayar/' . $slugUrl) }}" method="POST" data-sekali
               class="mt-8 grid gap-10 lg:grid-cols-[1fr_340px] lg:gap-12">
             @csrf
 
@@ -84,9 +85,20 @@
                     @endforeach
                 </div>
 
-                <p class="mt-4 text-xs text-nema-muted">
-                    Cara bayar di atas belum tersambung ke penyedia pembayaran mana pun.
+                <p class="mt-4 text-sm text-nema-muted">
+                    Pembayaran diproses oleh Midtrans. Selesaikan dalam {{ \App\Models\Booking::BATAS_BAYAR_MENIT }} menit;
+                    lewat dari itu pesanan batal dan kursinya dilepas untuk penonton lain.
+                    Karena proyek ini untuk belajar, pesanan langsung dianggap lunas begitu halaman Midtrans dibuka.
                 </p>
+
+                <div class="mt-6 rounded-xl border border-nema-line p-4 text-sm text-nema-muted">
+                    <p class="text-nema-text">Ketentuan tiket</p>
+                    <ul class="mt-2 list-inside list-disc space-y-1">
+                        <li>Tiket yang sudah dibayar tidak bisa dibatalkan, dikembalikan, atau ditukar jadwal.</li>
+                        <li>Tunjukkan kode tiket di pintu studio. Satu kursi untuk satu penonton.</li>
+                        <li>Datang sebelum jam tayang. Film mulai sekitar {{ \App\Models\Showtime::IKLAN_MENIT }} menit setelah jam tayang, setelah iklan dan cuplikan film.</li>
+                    </ul>
+                </div>
             </fieldset>
 
             <div class="lg:sticky lg:top-24 lg:self-start">
@@ -110,6 +122,8 @@
                         </div>
                     </div>
 
+                    @include('partials.batas-usia', ['usia' => $film->usia])
+
                     <div class="mt-5 border-t border-nema-line/40 pt-5">
                         <p class="text-sm text-nema-muted">Kursi</p>
                         <p class="mt-1">{{ implode(', ', $kursi) }}</p>
@@ -132,7 +146,7 @@
                     </div>
 
                     <button type="submit"
-                            class="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-nema-maroon px-6 font-medium text-white transition-colors hover:bg-nema-maroon-hover">
+                            class="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-nema-maroon px-6 font-medium text-white transition-colors hover:bg-nema-maroon-hover disabled:cursor-wait disabled:opacity-60">
                         Bayar sekarang
                     </button>
 
@@ -141,5 +155,22 @@
 
         </form>
     </div>
+
+    <script>
+        (function () {
+            const tombol = document.querySelector('[data-sekali] button[type="submit"]');
+
+            document.querySelector('[data-sekali]').addEventListener('submit', function () {
+                tombol.disabled = true;
+                tombol.textContent = 'Memproses...';
+            });
+
+            // Tombol dinyalakan lagi kalau halaman ini dibuka ulang lewat tombol Kembali di browser.
+            window.addEventListener('pageshow', function () {
+                tombol.disabled = false;
+                tombol.textContent = 'Bayar sekarang';
+            });
+        })();
+    </script>
 
 @endsection

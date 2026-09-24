@@ -17,11 +17,13 @@ Route::get('/film/{slug}', [MovieController::class, 'show'])->where('slug', '[a-
 Route::middleware(['auth', \App\Http\Middleware\IsUser::class])->group(function () {
     Route::get('/kursi/{slug}', [BookingController::class, 'pilihKursi'])->where('slug', '[a-z0-9-]+');
     Route::get('/bayar/{slug}', [BookingController::class, 'halamanBayar'])->where('slug', '[a-z0-9-]+');
-    Route::post('/proses-bayar/{slug}', [BookingController::class, 'prosesBayar']);
+    // throttle:10,1,bayar = paling banyak 10 kali per menit per pengguna, supaya satu skrip tidak bisa
+    // memborong kursi atau membanjiri Midtrans. Kata terakhir memberi tiap rute hitungannya sendiri.
+    Route::post('/proses-bayar/{slug}', [BookingController::class, 'prosesBayar'])->middleware('throttle:10,1,bayar');
     Route::get('/tiket-saya', [BookingController::class, 'tiketSaya']);
     Route::post('/tiket-saya/nilai', [BookingController::class, 'nilaiFilm']);
     Route::get('/feedback', [\App\Http\Controllers\FeedbackController::class, 'create']);
-    Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store']);
+    Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store'])->middleware('throttle:5,1,masukan');
 });
 
 // Pemberitahuan pembayaran dari server Midtrans. Tidak butuh login, keasliannya dicek lewat tanda tangan.
@@ -34,10 +36,11 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware('guest')->group(function () {
     Route::get('/masuk', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/masuk', [AuthController::class, 'login']);
+    // Percobaan masuk dibatasi lewat aturan 'masuk' di AppServiceProvider.
+    Route::post('/masuk', [AuthController::class, 'login'])->middleware('throttle:masuk');
 
     Route::get('/daftar', [AuthController::class, 'showRegisterForm']);
-    Route::post('/daftar', [AuthController::class, 'register']);
+    Route::post('/daftar', [AuthController::class, 'register'])->middleware('throttle:10,1,daftar');
 });
 
 // Halaman admin, hanya untuk akun dengan role admin.

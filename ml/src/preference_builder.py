@@ -37,6 +37,10 @@ import zlib
 
 import numpy as np
 
+# Pakai normalisasi genre yang sama dengan FeatureBuilder
+# supaya genre user dan genre kandidat selalu cocok.
+from .feature_builder import canonical_genre
+
 
 Number = Union[int, float]
 MovieRecord = Mapping[str, Any]
@@ -315,7 +319,8 @@ class PreferenceBuilder:
         default_user_mean_rating: float = 3.5,
     ) -> None:
         self.genres = list(genres)
-        self.genre_set = set(self.genres)
+        # Lookup genre tanpa peduli huruf besar/kecil.
+        self.genre_by_lower = {g.lower(): g for g in self.genres}
         self.hash_config = {
             field: dict(cfg)
             for field, cfg in hash_config.items()
@@ -544,12 +549,10 @@ class PreferenceBuilder:
 
             # Genre evidence menggunakan raw rating,
             # identik dengan training profile.
+            # _extract_genres hanya mengembalikan genre yang dikenal model.
             for genre in self._extract_genres(
                 movie
             ):
-                if genre not in self.genre_set:
-                    continue
-
                 genre_sum[genre] += rating
                 genre_count[genre] += 1.0
 
@@ -602,13 +605,27 @@ class PreferenceBuilder:
                 ),
             )
 
-            for genre in favorite_genres:
-                if genre not in self.genre_set:
+            # Genre favorit dinormalisasi sama seperti genre film,
+            # misalnya "Science Fiction" -> "Sci-Fi".
+            counted_genres = set()
+
+            for raw_genre in favorite_genres:
+                genre = canonical_genre(
+                    raw_genre,
+                    self.genre_by_lower,
+                )
+
+                if genre is None:
                     warnings.append(
-                        f"Genre onboarding '{genre}' tidak dikenal "
+                        f"Genre onboarding '{raw_genre}' tidak dikenal "
                         "oleh model dan diabaikan."
                     )
                     continue
+
+                # Genre yang sama cukup dihitung sekali.
+                if genre in counted_genres:
+                    continue
+                counted_genres.add(genre)
 
                 genre_sum[genre] += (
                     pseudo_rating
@@ -868,23 +885,32 @@ class PreferenceBuilder:
         self,
         movie: MovieRecord,
     ) -> List[str]:
+        """
+        Ambil genre film dalam vocabulary model.
+
+        Normalisasinya sama dengan FeatureBuilder:
+        nama TMDB diubah ke MovieLens, huruf besar/kecil diabaikan,
+        dan genre yang tidak dikenal model dibuang.
+        """
         for field in self.GENRE_FIELD_ALIASES:
             if field not in movie:
                 continue
 
-            genres = _as_list(
-                movie[field]
-            )
-
             # Kalau JSON string names / list masuk,
             # hasil sudah berupa list.
-            return [
-                str(g).strip()
-                for g in genres
-                if str(g).strip()
-                and str(g).strip()
-                != "(no genres listed)"
-            ]
+            result: List[str] = []
+
+            for raw_genre in _as_list(movie[field]):
+                genre = canonical_genre(
+                    raw_genre,
+                    self.genre_by_lower,
+                )
+
+                # Hindari genre dobel dalam satu film.
+                if genre is not None and genre not in result:
+                    result.append(genre)
+
+            return result
 
         return []
 

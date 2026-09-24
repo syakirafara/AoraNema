@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,6 +11,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Movie extends Model
 {
+    // Durasi yang dipakai kalau film belum punya durasi, misalnya data lama dari TMDB.
+    // Film baru dari halaman admin wajib diisi durasinya.
+    public const DURASI_BAWAAN = 120;
+
     // biar kolom 'id' gak bisa diisi sembarangan misalnya lewat form input
     protected $guarded = ['id'];
 
@@ -34,7 +39,7 @@ class Movie extends Model
         $rilis = $this->release_date ? Carbon::parse($this->release_date) : null;
 
         return [
-            'slug' => Str::slug($this->title) . '-' . $this->id,
+            'slug' => $this->slug(),
             'judul' => $this->title,
             'poster' => $this->alamatPoster(),
             'tagline' => $this->tagline,
@@ -58,6 +63,19 @@ class Movie extends Model
         ];
     }
 
+    // Alamat halaman film, misalnya "coyote-vs-acme-3". Angka di belakang adalah id filmnya.
+    // Judul yang tidak memakai huruf latin, misalnya judul Korea, diganti kata "film".
+    public function slug(): string
+    {
+        return (Str::slug($this->title) ?: 'film') . '-' . $this->id;
+    }
+
+    // Durasi film dalam menit.
+    public function durasi(): int
+    {
+        return $this->duration_minutes ?: self::DURASI_BAWAAN;
+    }
+
     // Seeder TMDB menyimpan alamat lengkap, sedangkan admin boleh mengisi nama berkas di
     // public/img/. Keduanya diubah jadi alamat yang bisa langsung dipakai di <img>.
     public function alamatPoster(): ?string
@@ -75,6 +93,21 @@ class Movie extends Model
     public function akanTayang(): bool
     {
         return $this->release_date !== null && Carbon::parse($this->release_date)->startOfDay()->isFuture();
+    }
+
+    // Film yang sedang tayang: sudah rilis dan punya jadwal yang belum lewat. Di bioskop sungguhan
+    // pun daftar "sedang tayang" hanya berisi film yang tiketnya bisa dipesan.
+    public function scopeSedangTayang(Builder $query): void
+    {
+        $query->where(fn ($q) => $q
+            ->where(fn ($q) => $q->whereNull('release_date')->orWhereDate('release_date', '<=', today()))
+            ->whereHas('jadwalMendatang'));
+    }
+
+    // Film yang segera tayang: tanggal rilisnya belum tiba. Untuk satu film, pakai akanTayang().
+    public function scopeSegeraTayang(Builder $query): void
+    {
+        $query->whereDate('release_date', '>', today());
     }
 
     // Jadwal yang belum lewat, dipakai untuk tahu format apa saja yang sedang ditawarkan.

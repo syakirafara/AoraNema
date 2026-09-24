@@ -625,3 +625,48 @@ def test_production_metadata_fallbacks(
         0.0,
         abs=1e-7,
     )
+
+
+def test_preference_builder_maps_tmdb_genres(pipeline):
+    """
+    Laravel mengirim nama genre TMDB. Genre film yang dirating dan
+    genre favorit harus dinormalisasi sama seperti kandidat:
+    - Science Fiction -> Sci-Fi, Family -> Children, Music -> Musical
+    - huruf besar/kecil diabaikan
+    - History tidak dikenal model -> diabaikan
+    """
+    preference_builder = pipeline["preference_builder"]
+
+    catalog = {
+        10: {
+            "movieId": 10,
+            "genres": "Science Fiction|family|History",
+        },
+    }
+
+    profile = preference_builder.build_profile(
+        interactions=[
+            {"movie_id": 10, "rating": 5.0},
+        ],
+        movie_catalog=catalog,
+        favorite_genres=[
+            "music",
+            "SCIENCE FICTION",
+            "Action",
+            "History",
+        ],
+    )
+
+    evidence = profile.genre_evidence_count
+
+    # Sci-Fi: 1 dari histori + 1 dari genre favorit.
+    assert evidence["Sci-Fi"] == 2.0
+    assert evidence["Children"] == 1.0
+    assert evidence["Musical"] == 1.0
+    assert evidence["Action"] == 1.0
+    assert sum(evidence.values()) == 5.0
+
+    assert profile.warnings == [
+        "Genre onboarding 'History' tidak dikenal "
+        "oleh model dan diabaikan."
+    ]

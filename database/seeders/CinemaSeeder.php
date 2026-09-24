@@ -2,61 +2,40 @@
 
 namespace Database\Seeders;
 
-use App\Models\Movie;
-use App\Models\Showtime;
 use App\Models\Studio;
-use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
+// Studio bioskop contoh. Jadwal tayangnya dibuat JadwalSeeder.
 class CinemaSeeder extends Seeder
 {
+    // Enam studio reguler 2D, satu studio 3D, dan satu IMAX yang lebih besar, seperti bioskop
+    // ukuran sedang. Tarif mengikuti kisaran harga bioskop di Indonesia; akhir pekan lebih mahal.
+    // Urutan isian: nama, format, jumlah baris, kursi per baris, tarif hari biasa, tarif akhir pekan.
+    private const STUDIO = [
+        ['Studio 1', 'Regular 2D', 8, 10, 45000, 55000],
+        ['Studio 2', 'Regular 2D', 8, 10, 45000, 55000],
+        ['Studio 3', 'Regular 2D', 8, 10, 45000, 55000],
+        ['Studio 4', 'Regular 2D', 8, 10, 45000, 55000],
+        ['Studio 5', 'Regular 2D', 6, 10, 45000, 55000],
+        ['Studio 6', 'Regular 2D', 6, 10, 45000, 55000],
+        ['Studio 7', 'Regular 3D', 8, 10, 55000, 65000],
+        ['Studio 8', 'IMAX', 10, 12, 75000, 90000],
+    ];
+
     public function run(): void
     {
-        $this->command->info('Membangun Studio dan menyusun Kursi...');
-
-        // 1. Buat 2 Studio Fisik
-        $studios = [
-            // Nama studio sama dengan formatnya, jadi di halaman film cukup ditulis sekali
-            ['name' => 'Regular 2D', 'format' => 'Regular 2D'],
-            ['name' => 'IMAX', 'format' => 'IMAX'],
-        ];
-
-        foreach ($studios as $studioData) {
-            // 2. Kursi baris A sampai E, masing-masing 10 nomor (Total 50 kursi per studio)
-            Studio::create([
-                'name' => $studioData['name'],
-                'format' => $studioData['format'],
-                'baris' => 5,
-                'kursi_per_baris' => 10,
+        foreach (self::STUDIO as [$nama, $format, $baris, $perBaris, $biasa, $akhirPekan]) {
+            // Dicari berdasarkan nama, supaya seeder yang dijalankan dua kali tidak membuat studio ganda.
+            // Studio yang sudah ada tidak diubah, karena kursinya mungkin sudah terjual.
+            Studio::firstOrCreate(['name' => $nama], [
+                'format' => $format,
+                'baris' => $baris,
+                'kursi_per_baris' => $perBaris,
+                'harga_biasa' => $biasa,
+                'harga_akhir_pekan' => $akhirPekan,
             ]);
         }
 
-        $this->command->info('Membuat Jadwal Tayang Film...');
-
-        // Ambil 5 film pertama dari database (yang ditarik dari TMDB)
-        $movies = Movie::where('is_showing', true)->take(5)->get();
-        $semuaStudio = Studio::all();
-        $hariIni = Carbon::today();
-
-        // 3. Jodohkan Film dengan Studio dan Jam Tayang
-        foreach ($movies as $movie) {
-            foreach ($semuaStudio as $studio) {
-                // Buat jadwal tayang Siang. Harganya diambil dari tarif studio
-                Showtime::create([
-                    'movie_id' => $movie->id,
-                    'studio_id' => $studio->id,
-                    'show_time' => $hariIni->copy()->setHour(13)->setMinute(0),
-                ]);
-                
-                // Buat jadwal tayang Malam
-                Showtime::create([
-                    'movie_id' => $movie->id,
-                    'studio_id' => $studio->id,
-                    'show_time' => $hariIni->copy()->setHour(19)->setMinute(30),
-                ]);
-            }
-        }
-        
-        $this->command->info('SELESAI: Studio, Kursi, dan Jadwal berhasil disiapkan!');
+        $this->command->info('SELESAI: ' . count(self::STUDIO) . ' studio disiapkan.');
     }
 }

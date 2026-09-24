@@ -8,6 +8,8 @@
      * @var string $jam
      * @var int $harga
      * @var int $jumlah
+     * @var int $jumlahDiminta
+     * @var int $sisa
      * @var array $kursiTerisi
      */
 @endphp
@@ -44,9 +46,10 @@
             ? '1.25rem repeat(' . $lorongSetelah . ', ' . $kolomKursi . ') 1rem repeat(' . ($kursiTerbanyak - $lorongSetelah) . ', ' . $kolomKursi . ')'
             : '1.25rem repeat(' . max(1, $kursiTerbanyak) . ', ' . $kolomKursi . ')';
 
-        $filmSlug = Str::slug($film->title) . '-' . $film->id;
+        $filmSlug = $film->slug();
 
         $adaPoster = !empty($film->poster_url);
+        $biayaLayanan = \App\Models\Booking::BIAYA_LAYANAN;
     @endphp
 
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -65,6 +68,12 @@
                 @if(session('error'))
                     <p role="alert" class="mt-4 rounded-lg border border-nema-accent bg-nema-surface p-4 text-sm">
                         {{ session('error') }}
+                    </p>
+                @endif
+
+                @if ($jumlah < $jumlahDiminta)
+                    <p role="status" class="mt-4 rounded-lg border border-nema-line bg-nema-surface p-4 text-sm">
+                        Kursi kosong di jadwal ini tinggal {{ $sisa }}, jadi jumlah tiketmu disesuaikan menjadi {{ $jumlah }}.
                     </p>
                 @endif
 
@@ -139,16 +148,23 @@
                         </div>
                     </div>
 
+                    @include('partials.batas-usia', ['usia' => $film->usia])
+
                     <div class="mt-5 border-t border-nema-line/40 pt-5">
                         <p class="text-sm text-nema-muted">Kursi dipilih</p>
                         <p data-daftar aria-live="polite" class="mt-1">belum ada</p>
                     </div>
 
-                    <div class="mt-4 flex items-baseline justify-between gap-4 text-sm">
-                        <span data-hitungan class="text-nema-muted">
-                            0 &times; Rp {{ number_format($harga, 0, ',', '.') }}
-                        </span>
-                    </div>
+                    <dl class="mt-4 space-y-2 text-sm">
+                        <div class="flex justify-between gap-4">
+                            <dt data-hitungan class="text-nema-muted">0 &times; Rp {{ number_format($harga, 0, ',', '.') }}</dt>
+                            <dd data-subtotal>Rp 0</dd>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-nema-muted">Biaya layanan</dt>
+                            <dd data-layanan>Rp 0</dd>
+                        </div>
+                    </dl>
 
                     <div class="mt-4 flex items-baseline justify-between gap-4 border-t border-nema-line/40 pt-4">
                         <span>Total</span>
@@ -174,12 +190,15 @@
         (function () {
             const MAKS = {{ $jumlah }};
             const HARGA = {{ $harga }};
+            const BIAYA_LAYANAN = {{ $biayaLayanan }};
 
             const kursi = document.querySelectorAll('[data-kursi]:not([disabled])');
             const daftar = document.querySelector('[data-daftar]');
             const hitungan = document.querySelector('[data-hitungan]');
             const sisa = document.querySelector('[data-sisa]');
             const total = document.querySelector('[data-total]');
+            const subtotal = document.querySelector('[data-subtotal]');
+            const layanan = document.querySelector('[data-layanan]');
             const lanjut = document.querySelector('[data-lanjut]');
 
             const dasar = @json(url('/bayar/' . $filmSlug));
@@ -201,7 +220,9 @@
 
                 daftar.textContent = dipilih.length ? dipilih.join(', ') : 'belum ada';
                 hitungan.textContent = dipilih.length + ' \u00d7 ' + rupiah(HARGA);
-                total.textContent = rupiah(dipilih.length * HARGA);
+                subtotal.textContent = rupiah(dipilih.length * HARGA);
+                layanan.textContent = rupiah(dipilih.length * BIAYA_LAYANAN);
+                total.textContent = rupiah(dipilih.length * (HARGA + BIAYA_LAYANAN));
 
                 sisa.textContent = kurang > 0
                     ? 'Pilih ' + kurang + ' kursi lagi untuk melanjutkan.'

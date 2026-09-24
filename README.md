@@ -6,14 +6,15 @@ Aplikasi pemesanan tiket bioskop dengan Laravel. Rekomendasi film dan analisis s
 
 **Penonton**
 - Mendaftar akun dan memilih genre favorit
-- Melihat film, jadwal tayang, dan harga
+- Melihat film yang sedang tayang dan akan tayang, jadwal tujuh hari ke depan, harga, dan sisa kursi
 - Memilih kursi di denah, lalu membayar lewat Midtrans (sandbox)
 - Melihat tiket berkode batang di halaman Tiket Saya
 - Memberi nilai film setelah filmnya selesai, dan mengirim masukan
 
 **Admin**
-- Mengelola film, studio, dan jadwal tayang
-- Melihat daftar pesanan dan ringkasan masukan
+- Mengelola film, studio, dan jadwal tayang. Jadwal dilihat per hari dan per studio, seperti papan jadwal bioskop
+- Melihat daftar pesanan, mencarinya dari kode tiket atau nama pemesan, dan melihat penjualan hari ini
+- Melihat ringkasan masukan
 
 **Layanan ML**
 - Rekomendasi film di beranda, dari genre favorit atau nilai film yang pernah diberikan
@@ -81,17 +82,47 @@ Aplikasi pemesanan tiket bioskop dengan Laravel. Rekomendasi film dan analisis s
 | Admin | admin@aoranema.com | password123 |
 | Penonton | user@aoranema.com | password123 |
 
-Akun penonton sudah punya genre favorit, jadi rekomendasi di beranda langsung muncul selama layanan ML menyala.
+Akun penonton sudah punya genre favorit, jadi rekomendasi di beranda langsung muncul selama layanan ML menyala. Kata sandi contoh ini hanya untuk belajar; ganti sebelum aplikasi dipasang di internet.
 
-### Data contoh tambahan
+### Data contoh
 
-Seeder utama membuat film yang sedang tayang, dua studio, dan jadwal untuk hari ini. Seeder berikut dijalankan sendiri kalau perlu:
+Seeder utama membuat 10 film yang sedang tayang dan beberapa film yang akan tayang dari TMDB, dua akun contoh, delapan studio, dan jadwal tayang untuk hari ini sampai enam hari ke depan. Jadwalnya disusun mengikuti aturan bioskop di bawah, jadi tidak ada yang bertabrakan.
+
+Jadwal hanya dibuat untuk tujuh hari. Kalau proyek dibuka lagi setelah itu, susun ulang jadwalnya:
+
+```bash
+php artisan db:seed --class=JadwalSeeder
+```
+
+Jadwal mendatang yang belum dipesan akan dihapus dan disusun ulang. Jadwal yang sudah dipesan tidak disentuh.
+
+Seeder berikut dijalankan sendiri kalau perlu:
 
 | Perintah | Isinya |
 |---|---|
-| `php artisan db:seed --class=JadwalContohSeeder` | Jadwal untuk enam hari ke depan |
-| `php artisan db:seed --class=FilmAkanTayangSeeder` | Film yang akan tayang, dari TMDB |
 | `php artisan db:seed --class=MasukanContohSeeder` | Contoh masukan untuk halaman admin. Layanan ML harus menyala |
+
+## Aturan bioskop
+
+Aturan ini dipakai di halaman admin, halaman penonton, dan seeder. Angkanya ditulis sekali sebagai konstanta di `app/Models/Showtime.php` dan `app/Models/Booking.php`.
+
+**Jadwal tayang**
+- Satu studio hanya memutar satu film dalam satu waktu, baik film yang sama maupun film yang berbeda. Film yang sama boleh diputar di beberapa studio sekaligus.
+- Satu tayangan memakai studio mulai jam tayang, lalu 10 menit iklan dan cuplikan film, durasi film, dan 15 menit jeda bersih-bersih. Tayangan berikutnya di studio itu baru boleh mulai setelahnya.
+- Jam tayang antara 10:00 dan 22:00.
+- Tiket dijual untuk hari ini dan enam hari ke depan. Admin hanya bisa menyusun jadwal sejauh itu.
+- Film baru bisa dijadwalkan mulai tanggal rilisnya, dan wajib punya durasi.
+- Mengubah durasi atau tanggal rilis film ditolak kalau membuat jadwalnya bertabrakan atau tayang sebelum rilis.
+- Jadwal yang sudah dipesan tidak bisa diubah atau dihapus. Format dan susunan kursi studionya juga dikunci sampai jadwal itu lewat.
+- Film yang diarsipkan berhenti dijual. Jadwal mendatangnya yang belum dipesan dihapus, sedangkan yang sudah dipesan tetap diputar.
+
+**Pemesanan**
+- Satu kursi hanya untuk satu pesanan. Kalau dua penonton membayar kursi yang sama bersamaan, yang lebih dulu diproses yang mendapatkannya, dan yang lain dikembalikan ke denah.
+- Paling banyak 6 kursi per pesanan. Harga tiket mengikuti tarif studio: hari biasa (Senin sampai Jumat), atau akhir pekan (Sabtu dan Minggu). Ada biaya layanan Rp3.000 per tiket.
+- Penjualan ditutup saat jam tayang tiba. Jadwal yang kursinya habis ditandai Penuh.
+- Pesanan yang tidak dibayar dalam 15 menit dibatalkan dan kursinya dilepas. Dalam mode belajar aturan ini tidak terlihat, karena pesanan langsung dianggap lunas (lihat bagian Pembayaran Midtrans).
+- Tiket yang sudah dibayar tidak bisa dibatalkan atau ditukar. Film hanya bisa dinilai setelah selesai ditonton.
+- Film tampil sebagai "sedang tayang" hanya kalau sudah rilis dan punya jadwal yang bisa dipesan.
 
 ## Menjalankan layanan ML
 
@@ -135,3 +166,5 @@ Genre favorit penonton disimpan di kolom `favorite_genres` pada tabel `users`.
 ```bash
 php artisan test
 ```
+
+Tes memakai SQLite di memori, jadi database MySQL tidak tersentuh. Aturan jadwal ada di `tests/Feature/JadwalTest.php`, dan aturan pemesanan di `tests/Feature/PemesananTest.php`.

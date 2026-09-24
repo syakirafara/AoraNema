@@ -4,14 +4,20 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class AoranemaMlService
 {
+    // Batas waktu (detik) untuk tersambung ke layanan ML. Kalau layanannya mati,
+    // kita langsung tahu dalam 2 detik, tidak menunggu sampai batas waktu penuh.
+    private const CONNECT_TIMEOUT = 2;
+
     private string $baseUrl;
     private int $timeout;
+    private int $sentimentTimeout;
 
     public function __construct()
     {
@@ -21,8 +27,11 @@ class AoranemaMlService
             '/'
         );
 
-        // Gunakan timeout default 60 detik jika tidak ada
-        $this->timeout = config('services.ml.timeout', 60);
+        // Rekomendasi dipanggil setiap kali beranda dibuka, jadi batas waktunya singkat (10 detik).
+        $this->timeout = (int) config('services.ml.timeout', 10);
+
+        // Sentimen hanya dipanggil saat form masukan dikirim, jadi boleh lebih lama.
+        $this->sentimentTimeout = (int) config('services.ml.sentiment_timeout', 30);
     }
 
     /**
@@ -37,7 +46,7 @@ class AoranemaMlService
                                ->where('user_id', $user->id)
                                ->whereNotNull('rating')
                                ->get();
-                               
+
         $interactions = [];
         $favorite_movie_ids = [];
 
@@ -50,8 +59,16 @@ class AoranemaMlService
         }
         $favorite_movie_ids = array_unique($favorite_movie_ids);
 
+        $favorite_genres = $user->favorite_genres ?? [];
+
         // 2. Tentukan Mode
         $mode = count($interactions) > 0 ? 'history' : 'onboarding';
+
+        // Belum pernah memberi nilai dan belum memilih genre favorit: API ML pasti
+        // menolak (422), jadi tidak perlu dipanggil. Beranda cukup tanpa rekomendasi.
+        if ($mode === 'onboarding' && empty($favorite_genres)) {
+            return [];
+        }
 
         // 3. Susun Payload
         $payload = [
@@ -66,31 +83,34 @@ class AoranemaMlService
             $payload['interactions'] = $interactions;
         } else {
             // Mode onboarding
-            $favorite_genres = $user->favorite_genres ?? [];
             $payload['favorite_genres'] = $favorite_genres;
             $payload['favorite_movie_ids'] = $favorite_movie_ids;
         }
 
-        // 4. Kirim Request
-        try {
-            $response = Http::acceptJson()
-                ->asJson()
-                ->timeout($this->timeout)
-                ->post($this->baseUrl . '/recommendations', $payload);
-            
-            if ($response->successful()) {
-                $data = $response->json();
-                if (isset($data['recommendations'])) {
-                    return array_column($data['recommendations'], 'movie_id');
-                }
-            } else {
-                Log::error('ML API Error (Recommendation): ' . $response->body());
-            }
-        } catch (\Exception $e) {
-            Log::error('ML API Exception (Recommendation): ' . $e->getMessage());
+        // 4. Cek cache dulu. Kuncinya memuat id user dan md5 dari payload, jadi kalau
+        //    ada rating baru atau daftar film berubah, kuncinya ikut berubah.
+        $cacheKey = 'rekomendasi:user:' . $user->id . ':' . md5(json_encode($payload));
+
+        $hasilCache = Cache::get($cacheKey);
+        if ($hasilCache !== null) {
+            return $hasilCache;
         }
 
-        return [];
+        // 5. Kirim Request
+        $movieIds = $this->requestRecommendations($payload, $user->id);
+
+        if ($movieIds === null) {
+            // Gagal: simpan hasil kosong selama 1 menit, supaya layanan ML yang mati
+            // tidak memperlambat setiap kunjungan ke beranda.
+            Cache::put($cacheKey, [], now()->addMinute());
+
+            return [];
+        }
+
+        // Berhasil: simpan selama 10 menit.
+        Cache::put($cacheKey, $movieIds, now()->addMinutes(10));
+
+        return $movieIds;
     }
 
     /**
@@ -101,7 +121,8 @@ class AoranemaMlService
     {
         $response = Http::acceptJson()
             ->asJson()
-            ->timeout($this->timeout)
+            ->connectTimeout(self::CONNECT_TIMEOUT)
+            ->timeout($this->sentimentTimeout)
             ->post($this->baseUrl . '/sentiment', [
                 'text' => $text,
             ]);
@@ -113,6 +134,49 @@ class AoranemaMlService
         }
 
         return $response->json();
+    }
+
+    /**
+     * Kirim payload ke endpoint /recommendations.
+     * Mengembalikan daftar movie_id, atau null kalau request gagal.
+     */
+    private function requestRecommendations(array $payload, int $userId): ?array
+    {
+        try {
+            $response = Http::acceptJson()
+                ->asJson()
+                ->connectTimeout(self::CONNECT_TIMEOUT)
+                ->timeout($this->timeout)
+                ->post($this->baseUrl . '/recommendations', $payload);
+        } catch (\Exception $e) {
+            Log::error('ML API Exception (Recommendation): ' . $e->getMessage());
+
+            return null;
+        }
+
+        if (!$response->successful()) {
+            Log::error('ML API Error (Recommendation): ' . $response->body());
+
+            return null;
+        }
+
+        $data = $response->json();
+
+        // Peringatan dari ML, misalnya genre favorit yang tidak dikenal model.
+        if (!empty($data['warnings'])) {
+            Log::warning('ML API Warning (Recommendation)', [
+                'user_id' => $userId,
+                'warnings' => $data['warnings'],
+            ]);
+        }
+
+        if (!isset($data['recommendations'])) {
+            Log::error('ML API Error (Recommendation): respons tidak berisi recommendations.');
+
+            return null;
+        }
+
+        return array_column($data['recommendations'], 'movie_id');
     }
 
     /**
