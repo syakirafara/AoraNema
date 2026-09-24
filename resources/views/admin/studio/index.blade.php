@@ -55,7 +55,7 @@
                             <td class="py-4 pr-4 text-nema-muted">{{ $s->format }}</td>
 
                             <td class="py-4 pr-4 text-nema-muted">
-                                {{ $s->capacity }} kursi
+                                {{ $s->kapasitas() }} kursi
                             </td>
 
                             <td class="py-4 pr-4 text-nema-muted">

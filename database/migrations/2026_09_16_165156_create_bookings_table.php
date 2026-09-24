@@ -32,8 +32,6 @@ return new class extends Migration
             $table->string('status')->default('pending');
             // cara bayar yang dipilih penonton: qris, va, atau ewallet
             $table->string('payment_method')->nullable();
-            // alamat halaman pembayaran Midtrans, supaya pembayaran yang tertunda bisa dilanjutkan
-            $table->string('snap_url')->nullable();
             // nilai bintang 1 sampai 5, diisi penonton setelah filmnya selesai
             $table->unsignedTinyInteger('rating')->nullable();
 

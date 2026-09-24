@@ -71,7 +71,7 @@
                             <td class="py-4 pr-4 text-nema-muted">{{ $j->studio?->label() ?? '—' }}</td>
 
                             <td class="py-4 pr-4 text-nema-muted">
-                                Rp {{ number_format($j->price, 0, ',', '.') }}
+                                Rp {{ number_format($j->harga(), 0, ',', '.') }}
                             </td>
 
                             <td class="py-4 pr-4 text-nema-muted">

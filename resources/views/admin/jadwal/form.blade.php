@@ -60,7 +60,7 @@
                     <option value="">Pilih studio</option>
                     @foreach ($studio as $s)
                         <option value="{{ $s->id }}" @selected(old('studio_id', $jadwal->studio_id) == $s->id)>
-                            {{ $s->label() }} ({{ $s->capacity }} kursi)
+                            {{ $s->label() }} ({{ $s->kapasitas() }} kursi)
                         </option>
                     @endforeach
                 </select>

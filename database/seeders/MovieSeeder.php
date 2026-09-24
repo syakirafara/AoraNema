@@ -65,7 +65,6 @@ class MovieSeeder extends Seeder
                     'title' => $movie['title'],
                     'synopsis' => $movie['overview'] ?: null,
                     'poster_url' => $movie['poster_path'] ? "https://image.tmdb.org/t/p/w500{$movie['poster_path']}" : null,
-                    'backdrop_url' => $movie['backdrop_path'] ? "https://image.tmdb.org/t/p/w1280{$movie['backdrop_path']}" : null,
                     'duration_minutes' => $detail['runtime'] ?? 120, // Jika TMDB tidak punya durasi, beri default 120 menit
                     'release_date' => $movie['release_date'] ?: null,
                     'is_showing' => true,

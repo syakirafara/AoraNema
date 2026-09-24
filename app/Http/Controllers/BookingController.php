@@ -143,7 +143,7 @@ class BookingController extends Controller
             'layar' => $jadwal->studio->label(),
             'jam' => $jadwal->show_time->format('H:i'),
             'tanggal' => $jadwal->show_time->copy()->startOfDay(),
-            'harga' => $jadwal->price,
+            'harga' => $jadwal->harga(),
             'jumlah' => max(1, min(6, (int) $request->query('jumlah', 1))),
             'kursiTerisi' => $this->kursiTerisi($jadwal),
         ]);
@@ -159,7 +159,7 @@ class BookingController extends Controller
             'layar' => $jadwal->studio->label(),
             'jam' => $jadwal->show_time->format('H:i'),
             'tanggal' => $jadwal->show_time->copy()->startOfDay(),
-            'harga' => $jadwal->price,
+            'harga' => $jadwal->harga(),
             'kursi' => $this->ambilKursi(is_string($request->query('kursi')) ? $request->query('kursi') : '', $jadwal),
         ]);
     }
@@ -176,7 +176,7 @@ class BookingController extends Controller
         $kursiArr = $this->ambilKursi(is_string($request->input('kursi')) ? $request->input('kursi') : '', $showtime);
 
         $biayaLayanan = 3000;
-        $totalHargaPerKursi = $showtime->price + $biayaLayanan;
+        $totalHargaPerKursi = $showtime->harga() + $biayaLayanan;
         $grossAmount = count($kursiArr) * $totalHargaPerKursi;
 
         // Buat booking_code unik, yang juga dipakai sebagai order_id di Midtrans. Kode diulang kalau kebetulan sudah dipakai.
@@ -258,9 +258,9 @@ class BookingController extends Controller
 
         // Proyek ini untuk belajar dan tidak ada yang membayar sungguhan, jadi pesanan langsung
         // dianggap lunas begitu halaman Midtrans dibuka. Halaman Midtrans tetap ditampilkan untuk
-        // memperlihatkan alurnya. Untuk pembayaran sungguhan, hapus 'status' => 'paid' di bawah:
+        // memperlihatkan alurnya. Untuk pembayaran sungguhan, hapus baris update status ini:
         // pesanan akan menunggu sampai Midtrans menyatakan lunas lewat cekStatus() dan notifikasiMidtrans().
-        Booking::where('booking_code', $bookingCode)->update(['snap_url' => $snapUrl, 'status' => 'paid']);
+        Booking::where('booking_code', $bookingCode)->update(['status' => 'paid']);
 
         return redirect()->away($snapUrl);
     }
@@ -411,10 +411,6 @@ class BookingController extends Controller
         // filmnya belum selesai. Tiket lain tetap bisa dibuka, tapi tanpa kode yang bisa dipindai.
         $selesai = $tanggalCarbon->copy()->addMinutes($film->duration_minutes ?: 120)->isPast();
 
-        // Pesanan yang belum dibayar bisa dilanjutkan di halaman Midtrans selama batas bayarnya belum lewat.
-        $lanjutBayar = $pesanan->status === 'pending' && $pesanan->created_at->gt(now()->subMinutes(self::BATAS_BAYAR_MENIT))
-            ? $pesanan->snap_url
-            : null;
         $keadaan = match (true) {
             $pesanan->status === 'cancelled' => 'batal',
             $pesanan->status !== 'paid' => 'belum-bayar',
@@ -427,6 +423,6 @@ class BookingController extends Controller
         $batang = $generator->getBarcode($kode, $generator::TYPE_CODE_39, 2, 64, 'black');
 
         // Lempar ke view tiket.blade.php
-        return view('tiket', compact('film', 'tanggalCarbon', 'layar', 'jam', 'kursi', 'akhirPekan', 'namaMetode', 'total', 'kode', 'batang', 'keadaan', 'lanjutBayar'));
+        return view('tiket', compact('film', 'tanggalCarbon', 'layar', 'jam', 'kursi', 'akhirPekan', 'namaMetode', 'total', 'kode', 'batang', 'keadaan'));
     }
 }

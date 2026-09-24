@@ -20,10 +20,11 @@ return new class extends Migration
 
         // Tabel penghubung antara Movie dan Genre
         Schema::create('genre_movie', function (Blueprint $table) {
-            $table->id();
             $table->foreignId('movie_id')->constrained()->cascadeOnDelete();
             $table->foreignId('genre_id')->constrained()->cascadeOnDelete();
-            $table->timestamps();
+
+            // satu film tidak bisa punya genre yang sama dua kali
+            $table->primary(['movie_id', 'genre_id']);
         });
     }
     

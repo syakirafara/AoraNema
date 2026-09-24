@@ -16,16 +16,16 @@ class CinemaSeeder extends Seeder
 
         // 1. Buat 2 Studio Fisik
         $studios = [
-            // Nama studio dipakai langsung sebagai nama format di halaman detail film
-            ['name' => 'Regular 2D', 'capacity' => 50],
-            ['name' => 'IMAX', 'capacity' => 50],
+            // Nama studio sama dengan formatnya, jadi di halaman film cukup ditulis sekali
+            ['name' => 'Regular 2D', 'format' => 'Regular 2D'],
+            ['name' => 'IMAX', 'format' => 'IMAX'],
         ];
 
         foreach ($studios as $studioData) {
             // 2. Kursi baris A sampai E, masing-masing 10 nomor (Total 50 kursi per studio)
             Studio::create([
                 'name' => $studioData['name'],
-                'capacity' => $studioData['capacity'],
+                'format' => $studioData['format'],
                 'baris' => 5,
                 'kursi_per_baris' => 10,
             ]);
@@ -41,20 +41,18 @@ class CinemaSeeder extends Seeder
         // 3. Jodohkan Film dengan Studio dan Jam Tayang
         foreach ($movies as $movie) {
             foreach ($semuaStudio as $studio) {
-                // Buat jadwal tayang Siang (Harga murah)
+                // Buat jadwal tayang Siang. Harganya diambil dari tarif studio
                 Showtime::create([
                     'movie_id' => $movie->id,
                     'studio_id' => $studio->id,
                     'show_time' => $hariIni->copy()->setHour(13)->setMinute(0),
-                    'price' => 35000,
                 ]);
                 
-                // Buat jadwal tayang Malam (Harga mahal)
+                // Buat jadwal tayang Malam
                 Showtime::create([
                     'movie_id' => $movie->id,
                     'studio_id' => $studio->id,
                     'show_time' => $hariIni->copy()->setHour(19)->setMinute(30),
-                    'price' => 50000,
                 ]);
             }
         }

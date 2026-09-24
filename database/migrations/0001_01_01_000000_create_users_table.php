@@ -17,6 +17,11 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            // 'admin' atau 'user'
+            $table->string('role')->default('user');
+            // Nama genre yang dipilih saat mendaftar, misalnya ["Action", "Drama"].
+            // Dipakai untuk rekomendasi pertama sebelum user punya riwayat nilai
+            $table->json('favorite_genres')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

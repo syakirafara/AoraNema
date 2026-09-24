@@ -28,6 +28,13 @@ class Showtime extends Model
         return $this->belongsTo(Studio::class);
     }
 
+    // Harga per kursi jadwal ini, dari tarif studionya pada hari tayang.
+    // Muat relasi studio di query supaya tidak ada query tambahan per jadwal.
+    public function harga(): int
+    {
+        return $this->studio->hargaUntuk($this->show_time);
+    }
+
     // relasi ke tabel bookings (1 jadwal bisa dibooking banyak tiket)
     // Jeda antar tayangan untuk membersihkan studio dan mengganti penonton.
     public const JEDA_MENIT = 15;

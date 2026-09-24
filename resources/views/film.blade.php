@@ -157,15 +157,12 @@
                                 <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                                     <h3 class="text-base">{{ $layar }}</h3>
                                     {{-- Harga ditentukan studio dan harinya, jadi semua jam di baris ini sama harganya. --}}
-                                    {{-- Diambil dari jam yang masih bisa dipesan. Jam yang sudah lewat bisa menyimpan
-                                         harga lama kalau tarif studionya diubah setelah itu. --}}
                                     @php
-                                        $harga = $daftarJam->filter(fn ($j) => $j->show_time->isFuture())->pluck('price');
-                                        $harga = $harga->isEmpty() ? $daftarJam->pluck('price') : $harga;
+                                        $harga = $daftarJam->map->harga();
                                         $rp = fn ($n) => 'Rp ' . number_format($n, 0, ',', '.');
                                     @endphp
                                     {{-- Beberapa studio bisa berformat sama tapi bertarif berbeda, jadi yang
-                                         ditulis rentangnya. Jam yang sudah lewat tidak dihitung. --}}
+                                         ditulis rentangnya. --}}
                                     <p class="text-sm text-nema-muted">
                                         {{ $harga->min() === $harga->max() ? $rp($harga->min()) : $rp($harga->min()) . ' – ' . $rp($harga->max()) }}
                                     </p>
@@ -176,7 +173,7 @@
                                         {{-- Jam yang sudah lewat tetap terlihat supaya jadwal hari ini utuh,
                                              tapi dimatikan karena sudah tidak bisa dipesan. --}}
                                         <button type="button" data-jam="{{ $j->show_time->format('H:i') }}"
-                                            data-jadwal="{{ $j->id }}" data-harga="{{ $j->price }}" aria-pressed="false"
+                                            data-jadwal="{{ $j->id }}" data-harga="{{ $j->harga() }}" aria-pressed="false"
                                             @disabled($j->show_time->isPast())
                                             class="inline-flex min-h-11 min-w-20 items-center justify-center rounded-md border border-nema-line px-4 transition-colors hover:bg-nema-surface aria-pressed:border-nema-accent aria-pressed:bg-nema-maroon aria-pressed:text-white disabled:cursor-not-allowed disabled:border-nema-line/40 disabled:text-nema-muted/50 disabled:hover:bg-transparent">
                                             {{ $j->show_time->format('H:i') }}

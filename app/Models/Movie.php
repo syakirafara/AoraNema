@@ -16,8 +16,7 @@ class Movie extends Model
     // relasi ke tabel genre (many-to-many)
     public function genres(): BelongsToMany
     {
-        // ada tambahan ->withTimestamps() biar otomatis ikut nyatet tanggal dibuat dan diupdate-nya di tabel pivot 'genre_movie'
-        return $this->belongsToMany(Genre::class)->withTimestamps();
+        return $this->belongsToMany(Genre::class);
     }
 
     // relasi ke tabel showtimes (One-to-many)

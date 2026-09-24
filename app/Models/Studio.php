@@ -26,6 +26,12 @@ class Studio extends Model
         return $kursi;
     }
 
+    // Jumlah kursi di studio ini.
+    public function kapasitas(): int
+    {
+        return $this->baris * $this->kursi_per_baris;
+    }
+
     // Satu studio dipakai untuk banyak jadwal tayang
     public function showtimes(): HasMany
     {
@@ -44,13 +50,5 @@ class Studio extends Model
     public function hargaUntuk(\Carbon\CarbonInterface $tanggal): int
     {
         return in_array($tanggal->dayOfWeek, [5, 6, 0]) ? $this->harga_akhir_pekan : $this->harga_biasa;
-    }
-
-    // Jadwal yang belum lewat disesuaikan lagi dengan tarif studio, dipanggil setelah tarifnya diubah.
-    // Harga di pesanan yang sudah dibuat tidak ikut berubah karena disimpan sendiri di tabel bookings.
-    public function sesuaikanHargaJadwal(): void
-    {
-        $this->showtimes()->where('show_time', '>=', now())->get()
-            ->each(fn ($jadwal) => $jadwal->update(['price' => $this->hargaUntuk($jadwal->show_time)]));
     }
 }

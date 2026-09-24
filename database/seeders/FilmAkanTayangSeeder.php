@@ -64,7 +64,6 @@ class FilmAkanTayangSeeder extends Seeder
                 'title' => $f['title'],
                 'synopsis' => $sinopsis ?: null,
                 'poster_url' => "https://image.tmdb.org/t/p/w500{$f['poster_path']}",
-                'backdrop_url' => $f['backdrop_path'] ? "https://image.tmdb.org/t/p/w1280{$f['backdrop_path']}" : null,
                 'duration_minutes' => ($detail['runtime'] ?? 0) ?: null,
                 'release_date' => $f['release_date'],
                 'is_showing' => true,

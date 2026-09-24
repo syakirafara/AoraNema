@@ -101,7 +101,6 @@ class JadwalContohSeeder extends Seeder
                             'movie_id' => $f->id,
                             'studio_id' => $dipakai->id,
                             'show_time' => $mulai,
-                            'price' => $dipakai->hargaUntuk($mulai),
                         ]);
                         $dibuat++;
                     }
@@ -126,7 +125,6 @@ class JadwalContohSeeder extends Seeder
                 Studio::create([
                     'name' => 'Studio ' . (Studio::count() + 1),
                     'format' => $format,
-                    'capacity' => 80,
                     'baris' => 8,
                     'kursi_per_baris' => 10,
                     'harga_biasa' => $format === 'IMAX' ? 75000 : ($format === 'Regular 3D' ? 55000 : 45000),

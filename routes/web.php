@@ -172,7 +172,6 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
         $studio = \App\Models\Studio::create([
             'name' => $data['name'],
             'format' => $data['format'],
-            'capacity' => $data['baris'] * $data['per_baris'],
             'baris' => $data['baris'],
             'kursi_per_baris' => $data['per_baris'],
             'harga_biasa' => $data['harga_biasa'],
@@ -181,7 +180,7 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
 
         return redirect('/admin/studio')->with(
             'sukses',
-            'Studio "' . $studio->name . '" dibuat dengan ' . $studio->capacity . ' kursi.'
+            'Studio "' . $studio->name . '" dibuat dengan ' . $studio->kapasitas() . ' kursi.'
         );
     });
 
@@ -196,12 +195,8 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
             'harga_akhir_pekan' => $data['harga_akhir_pekan'],
         ]);
 
-        // Jadwal yang belum lewat ikut memakai tarif baru.
-        $studio->sesuaikanHargaJadwal();
-
         if (! $terkunci) {
             $studio->update([
-                'capacity' => $data['baris'] * $data['per_baris'],
                 'baris' => $data['baris'],
                 'kursi_per_baris' => $data['per_baris'],
             ]);
@@ -314,7 +309,6 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
                     'movie_id' => $data['movie_id'],
                     'studio_id' => $studio->id,
                     'show_time' => $waktu,
-                    'price' => $studio->hargaUntuk($waktu),
                 ]);
                 $dibuat++;
             }
@@ -439,7 +433,7 @@ function aturanStudio(\Illuminate\Http\Request $request, bool $terkunci = false)
 
 function aturanJadwal(\Illuminate\Http\Request $request): array
 {
-    $data = $request->validate([
+    return $request->validate([
         'movie_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('movies', 'id')->where('is_showing', true)],
         'studio_id' => ['required', 'integer', 'exists:studios,id'],
         'show_time' => ['required', 'date', 'after:now'],
@@ -448,13 +442,6 @@ function aturanJadwal(\Illuminate\Http\Request $request): array
         'studio_id' => 'studio',
         'show_time' => 'waktu tayang',
     ]);
-
-    // Harga tidak diisi admin per jadwal. Diambil dari tarif studio sesuai harinya,
-    // jadi semua jam di hari dan studio yang sama pasti berharga sama.
-    $data['price'] = \App\Models\Studio::find($data['studio_id'])
-        ->hargaUntuk(\Illuminate\Support\Carbon::parse($data['show_time']));
-
-    return $data;
 }
 
 // Studio yang kursinya sudah dipesan tidak boleh diubah susunannya, karena

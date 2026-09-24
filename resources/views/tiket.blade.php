@@ -40,16 +40,6 @@
 
         <p class="mt-2 text-center text-sm text-nema-muted">{{ $ketTiket }}</p>
 
-        @if ($lanjutBayar)
-            <div class="mt-6 text-center">
-                <a href="{{ $lanjutBayar }}"
-                   class="inline-flex min-h-11 items-center rounded-md bg-nema-maroon px-6 font-medium text-white transition-colors hover:bg-nema-maroon-hover">
-                    Lanjutkan pembayaran
-                </a>
-                <p class="mt-2 text-xs text-nema-muted">Kursimu ditahan selama 15 menit sejak memesan.</p>
-            </div>
-        @endif
-
         <div data-tiket class="mt-8 overflow-hidden rounded-2xl bg-nema-surface">
 
             <div class="p-6 sm:p-8">

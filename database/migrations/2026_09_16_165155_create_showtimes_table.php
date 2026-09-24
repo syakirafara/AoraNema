@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('movie_id')->constrained()->cascadeOnDelete();
             $table->foreignId('studio_id')->constrained()->cascadeOnDelete();
             $table->dateTime('show_time');
-            $table->integer('price');
+            // harga tidak disimpan di sini, tapi diambil dari tarif studio sesuai harinya
             $table->timestamps();
         });
     }
