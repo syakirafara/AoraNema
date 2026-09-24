@@ -1,59 +1,137 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# AoraNema
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplikasi pemesanan tiket bioskop dengan Laravel. Rekomendasi film dan analisis sentimen masukan dikerjakan oleh layanan machine learning terpisah di folder [`ml`](ml).
 
-## About Laravel
+## Fitur
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+**Penonton**
+- Mendaftar akun dan memilih genre favorit
+- Melihat film, jadwal tayang, dan harga
+- Memilih kursi di denah, lalu membayar lewat Midtrans (sandbox)
+- Melihat tiket berkode batang di halaman Tiket Saya
+- Memberi nilai film setelah filmnya selesai, dan mengirim masukan
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**Admin**
+- Mengelola film, studio, dan jadwal tayang
+- Melihat daftar pesanan dan ringkasan masukan
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+**Layanan ML**
+- Rekomendasi film di beranda, dari genre favorit atau nilai film yang pernah diberikan
+- Nada masukan (positif, netral, negatif) dengan model IndoBERT
 
-## Learning Laravel
+## Yang perlu dipasang
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- PHP 8.4 atau lebih baru, dan Composer
+- Node.js 22 dan npm
+- MySQL, misalnya dari Laragon
+- Python 3 dan pip, untuk layanan ML
+- Kunci API TMDB, untuk mengambil data film saat seeding
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Menjalankan aplikasi
 
-## Laravel Sponsors
+1. Unduh proyek dan pasang dependensinya.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+   ```bash
+   git clone https://github.com/syakirafara/AoraNema.git
+   cd AoraNema
+   composer install
+   npm install
+   ```
 
-### Premium Partners
+2. Salin `.env.example` menjadi `.env`, lalu buat kunci aplikasi. Di PowerShell, ganti `cp` dengan `copy`.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
 
-## Contributing
+3. Buat database kosong bernama `aoranema` di phpMyAdmin, lalu isi bagian ini di `.env`:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=aoranema
+   DB_USERNAME=root
+   DB_PASSWORD=
 
-## Code of Conduct
+   TMDB_API_KEY=kunci-tmdb-kamu
+   ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+4. Buat tabel dan isi data contoh. Langkah ini butuh internet, karena data film diambil dari TMDB.
 
-## Security Vulnerabilities
+   ```bash
+   php artisan migrate --seed
+   ```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+5. Jalankan dua perintah ini di dua terminal, lalu buka http://127.0.0.1:8000.
 
-## License
+   ```bash
+   php artisan serve
+   ```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+   ```bash
+   npm run dev
+   ```
+
+### Akun contoh
+
+| Peran | Email | Kata sandi |
+|---|---|---|
+| Admin | admin@aoranema.com | password123 |
+| Penonton | user@aoranema.com | password123 |
+
+Akun penonton sudah punya genre favorit, jadi rekomendasi di beranda langsung muncul selama layanan ML menyala.
+
+### Data contoh tambahan
+
+Seeder utama membuat film yang sedang tayang, dua studio, dan jadwal untuk hari ini. Seeder berikut dijalankan sendiri kalau perlu:
+
+| Perintah | Isinya |
+|---|---|
+| `php artisan db:seed --class=JadwalContohSeeder` | Jadwal untuk enam hari ke depan |
+| `php artisan db:seed --class=FilmAkanTayangSeeder` | Film yang akan tayang, dari TMDB |
+| `php artisan db:seed --class=MasukanContohSeeder` | Contoh masukan untuk halaman admin. Layanan ML harus menyala |
+
+## Menjalankan layanan ML
+
+Dari folder proyek, di PowerShell:
+
+```powershell
+cd ml
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --port 8001
+```
+
+Saat pertama dijalankan, model sentimen diunduh dari Hugging Face, jadi butuh internet dan agak lama. Laravel memanggil layanan ini di `http://127.0.0.1:8001`. Alamatnya bisa diubah lewat `ML_API_URL` di `.env`. Penjelasan lengkapnya ada di [ml/README.md](ml/README.md).
+
+Tanpa layanan ML, aplikasi tetap berjalan. Bedanya, rekomendasi di beranda tidak muncul, dan masukan tetap tersimpan tapi nadanya tercatat `unknown`.
+
+## Pembayaran Midtrans
+
+Isi `MIDTRANS_SERVER_KEY` di `.env` dengan kunci server sandbox dari dashboard Midtrans. Karena proyek ini untuk belajar, pesanan langsung dianggap lunas begitu halaman Midtrans dibuka. Kalau kuncinya dikosongkan, halaman Midtrans dilewati dan pesanan juga langsung lunas.
+
+Untuk pembayaran sungguhan, lihat komentar di `BookingController::prosesBayar`.
+
+## Struktur database
+
+Selain tabel bawaan Laravel, aplikasi ini memakai tujuh tabel:
+
+| Tabel | Isinya |
+|---|---|
+| `movies` | Data film |
+| `genres` | Daftar genre |
+| `genre_movie` | Penghubung film dan genre |
+| `studios` | Format layar, susunan kursi (baris × kursi per baris), serta tarif hari biasa dan akhir pekan |
+| `showtimes` | Jadwal tayang. Harganya diambil dari tarif studio sesuai harinya |
+| `bookings` | Pesanan: kursi, total harga, status, cara bayar, dan nilai film |
+| `feedbacks` | Masukan penonton beserta nadanya |
+
+Genre favorit penonton disimpan di kolom `favorite_genres` pada tabel `users`.
+
+## Menjalankan tes
+
+```bash
+php artisan test
+```
