@@ -149,9 +149,25 @@ class BookingController extends Controller
         ]);
     }
 
+    // Kembali ke denah dengan pesan, supaya penonton bisa langsung memilih kursi lain.
+    // Kursi yang sudah dipesan orang lain tampil terisi di denah itu.
+    private function kembaliKeDenah(Showtime $jadwal, string $kursi, int $jumlah)
+    {
+        $slug = Str::slug($jadwal->movie->title) . '-' . $jadwal->movie_id;
+
+        return redirect('/kursi/' . $slug . '?jadwal=' . $jadwal->id . '&jumlah=' . $jumlah)
+            ->with('error', "Kursi {$kursi} sudah dipesan orang lain. Silakan pilih kursi lain.");
+    }
+
     public function halamanBayar(Request $request, string $slug)
     {
         $jadwal = $this->ambilJadwal($request, $slug);
+        $kursi = $this->ambilKursi(is_string($request->query('kursi')) ? $request->query('kursi') : '', $jadwal);
+
+        // Kursi bisa saja sudah diambil orang lain sejak denahnya dibuka.
+        if ($diambil = array_intersect($kursi, $this->kursiTerisi($jadwal))) {
+            return $this->kembaliKeDenah($jadwal, implode(', ', $diambil), count($kursi));
+        }
 
         return view('bayar', [
             'film' => $jadwal->movie,
@@ -160,7 +176,7 @@ class BookingController extends Controller
             'jam' => $jadwal->show_time->format('H:i'),
             'tanggal' => $jadwal->show_time->copy()->startOfDay(),
             'harga' => $jadwal->harga(),
-            'kursi' => $this->ambilKursi(is_string($request->query('kursi')) ? $request->query('kursi') : '', $jadwal),
+            'kursi' => $kursi,
         ]);
     }
 
@@ -202,7 +218,7 @@ class BookingController extends Controller
                     ->delete();
 
                 if ($diambil = array_intersect($kursiArr, $this->kursiDiambil($showtime))) {
-                    throw new \DomainException(reset($diambil));
+                    throw new \DomainException(implode(', ', $diambil));
                 }
 
                 // Cara bayar dicatat sebelum Midtrans dipanggil, supaya tetap tersimpan walaupun Midtrans gagal.
@@ -217,7 +233,7 @@ class BookingController extends Controller
                 ]);
             });
         } catch (\DomainException $e) {
-            return back()->with('error', "Kursi {$e->getMessage()} baru saja dipesan orang lain. Pilih kursi lain.");
+            return $this->kembaliKeDenah($showtime, $e->getMessage(), count($kursiArr));
         }
 
         // Panggil Midtrans Snap

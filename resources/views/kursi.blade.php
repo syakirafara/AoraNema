@@ -62,6 +62,12 @@
 
                 <h1 class="text-2xl sm:text-3xl">Pilih kursi</h1>
 
+                @if(session('error'))
+                    <p role="alert" class="mt-4 rounded-lg border border-nema-accent bg-nema-surface p-4 text-sm">
+                        {{ session('error') }}
+                    </p>
+                @endif
+
                 {{-- Garisnya memudar di kedua ujung supaya terbaca sebagai layar yang
                      memantulkan cahaya, bukan sekadar garis pembatas. --}}
                 <div class="mt-10">
