@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Movie;
-use App\Models\Seat;
 use App\Models\Showtime;
 use App\Models\Studio;
 use Illuminate\Database\Seeder;
@@ -124,19 +123,15 @@ class JadwalContohSeeder extends Seeder
 
         foreach (self::STUDIO_PER_FORMAT as $format => $jumlah) {
             for ($ada = Studio::where('format', $format)->count(); $ada < $jumlah; $ada++) {
-                $studio = Studio::create([
+                Studio::create([
                     'name' => 'Studio ' . (Studio::count() + 1),
                     'format' => $format,
                     'capacity' => 80,
+                    'baris' => 8,
+                    'kursi_per_baris' => 10,
                     'harga_biasa' => $format === 'IMAX' ? 75000 : ($format === 'Regular 3D' ? 55000 : 45000),
                     'harga_akhir_pekan' => $format === 'IMAX' ? 90000 : ($format === 'Regular 3D' ? 65000 : 55000),
                 ]);
-
-                foreach (range('A', 'H') as $baris) {
-                    foreach (range(1, 10) as $nomor) {
-                        Seat::create(['studio_id' => $studio->id, 'seat_number' => $baris . $nomor]);
-                    }
-                }
 
                 $ditambah++;
             }

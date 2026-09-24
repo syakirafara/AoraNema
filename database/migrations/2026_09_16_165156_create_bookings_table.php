@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Satu baris per pesanan. Pembayaran dan nilai bintang ikut disimpan di sini,
-        // karena satu pesanan hanya punya satu pembayaran dan satu penilaian.
+        // Satu baris per pesanan. Kursi, pembayaran, dan nilai bintang ikut disimpan di sini,
+        // karena selalu dibaca dan disimpan bersama pesanannya.
         Schema::create('bookings', function (Blueprint $table) {
             $table->id();
             // kode di tiket, sekaligus order_id di Midtrans
@@ -21,6 +21,10 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             // nonton jam berapanya
             $table->foreignId('showtime_id')->constrained()->cascadeOnDelete();
+            // kursi mana yang dipesan, misalnya ["A1", "A2"]. Tidak ada aturan unik jadwal dan kursi,
+            // karena kursinya disimpan sebagai daftar. Kursi ganda dicegah BookingController::prosesBayar,
+            // yang mengunci jadwal selama memeriksa dan menyimpan pesanan
+            $table->json('kursi');
 
             // harga semua kursi ditambah biaya layanan
             $table->integer('total_price');
@@ -35,17 +39,6 @@ return new class extends Migration
 
             $table->timestamps();
         });
-
-        // Tabel penghubung pesanan dan kursi, karena satu pesanan bisa berisi beberapa kursi.
-        // Tidak ada aturan unik jadwal dan kursi di sini, karena jadwalnya disimpan di pesanan.
-        // Kursi ganda dicegah BookingController::prosesBayar, yang mengunci jadwal selama
-        // memeriksa dan menyimpan pesanan.
-        Schema::create('booking_seat', function (Blueprint $table) {
-            $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('seat_id')->constrained()->cascadeOnDelete();
-
-            $table->primary(['booking_id', 'seat_id']);
-        });
     }
 
     /**
@@ -53,7 +46,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('booking_seat');
         Schema::dropIfExists('bookings');
     }
 };

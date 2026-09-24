@@ -4,11 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Booking extends Model
 {
     protected $guarded = ['id'];
+
+    // Daftar nomor kursi disimpan sebagai JSON, dibaca kembali sebagai array PHP
+    protected $casts = [
+        'kursi' => 'array',
+    ];
 
     // Pesanan ini dibuat oleh satu user
     public function user(): BelongsTo
@@ -20,11 +24,5 @@ class Booking extends Model
     public function showtime(): BelongsTo
     {
         return $this->belongsTo(Showtime::class);
-    }
-
-    // Kursi yang dipesan, lewat tabel penghubung booking_seat
-    public function seats(): BelongsToMany
-    {
-        return $this->belongsToMany(Seat::class);
     }
 }

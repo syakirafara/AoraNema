@@ -56,22 +56,16 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
     Route::get('/film', function () {
         $saringan = in_array(request('status'), ['tayang', 'arsip']) ? request('status') : 'semua';
 
-        $film = \App\Models\Movie::with('genres')
+        $film = \App\Models\Movie::with(['genres', 'showtimes.bookings' => fn ($q) => $q->where('status', 'paid')])
             // Jadwal yang belum lewat. Ini yang menunjukkan film mana masih memakan slot studio.
             ->withCount(['showtimes as jadwal_mendatang' => fn ($q) => $q->where('show_time', '>=', now())])
-            // Tiket terjual dihitung dari kursi di pesanan yang sudah dibayar, lewat jadwalnya.
-            ->addSelect(['tiket_terjual' => \App\Models\Booking::query()
-                ->selectRaw('count(*)')
-                ->join('booking_seat', 'booking_seat.booking_id', '=', 'bookings.id')
-                ->join('showtimes', 'showtimes.id', '=', 'bookings.showtime_id')
-                ->whereColumn('showtimes.movie_id', 'movies.id')
-                ->where('bookings.status', 'paid'),
-            ])
             ->when($saringan === 'tayang', fn ($q) => $q->where('is_showing', true))
             ->when($saringan === 'arsip', fn ($q) => $q->where('is_showing', false))
             ->orderByDesc('id')
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            // Tiket terjual dihitung dari kursi di pesanan yang sudah dibayar, lewat jadwalnya.
+            ->through(fn ($f) => $f->setAttribute('tiket_terjual', $f->showtimes->flatMap->bookings->sum(fn ($b) => count($b->kursi))));
 
         return view('admin.film.index', [
             'film' => $film,
@@ -149,7 +143,7 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
     // ----- Studio ----------------------------------------------------------
 
     Route::get('/studio', function () {
-        $studio = \App\Models\Studio::withCount(['seats', 'showtimes'])->orderBy('name')->get();
+        $studio = \App\Models\Studio::withCount('showtimes')->orderBy('name')->get();
 
         return view('admin.studio.index', compact('studio'));
     });
@@ -164,14 +158,10 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
     });
 
     Route::get('/studio/{studio}/ubah', function (\App\Models\Studio $studio) {
-        // Baris dan kursi per baris tidak disimpan sebagai kolom, jadi dibaca balik
-        // dari kursi yang ada: berapa huruf berbeda, dan angka terbesarnya.
-        $nomor = $studio->seats()->pluck('seat_number');
-
         return view('admin.studio.form', [
             'studio' => $studio,
-            'baris' => $nomor->map(fn ($k) => substr($k, 0, 1))->unique()->count() ?: 8,
-            'perBaris' => $nomor->map(fn ($k) => (int) substr($k, 1))->max() ?: 10,
+            'baris' => $studio->baris,
+            'perBaris' => $studio->kursi_per_baris,
             'terkunci' => studioTerkunci($studio),
         ]);
     });
@@ -183,11 +173,11 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
             'name' => $data['name'],
             'format' => $data['format'],
             'capacity' => $data['baris'] * $data['per_baris'],
+            'baris' => $data['baris'],
+            'kursi_per_baris' => $data['per_baris'],
             'harga_biasa' => $data['harga_biasa'],
             'harga_akhir_pekan' => $data['harga_akhir_pekan'],
         ]);
-
-        susunKursi($studio, $data['baris'], $data['per_baris']);
 
         return redirect('/admin/studio')->with(
             'sukses',
@@ -210,8 +200,11 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
         $studio->sesuaikanHargaJadwal();
 
         if (! $terkunci) {
-            $studio->update(['capacity' => $data['baris'] * $data['per_baris']]);
-            susunKursi($studio, $data['baris'], $data['per_baris']);
+            $studio->update([
+                'capacity' => $data['baris'] * $data['per_baris'],
+                'baris' => $data['baris'],
+                'kursi_per_baris' => $data['per_baris'],
+            ]);
         }
 
         return redirect('/admin/studio')->with(
@@ -243,15 +236,11 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
         $adaStudio = \App\Models\Studio::exists();
 
         return view('admin.jadwal.index', [
-            'jadwal' => \App\Models\Showtime::with(['movie', 'studio'])
-                // Kursi yang sudah masuk pesanan jadwal ini. Satu pesanan bisa berisi beberapa kursi.
-                ->addSelect(['kursi_terisi' => \App\Models\Booking::query()
-                    ->selectRaw('count(*)')
-                    ->join('booking_seat', 'booking_seat.booking_id', '=', 'bookings.id')
-                    ->whereColumn('bookings.showtime_id', 'showtimes.id'),
-                ])
+            'jadwal' => \App\Models\Showtime::with(['movie', 'studio', 'bookings'])
                 ->orderByDesc('show_time')
-                ->paginate(20),
+                ->paginate(20)
+                // Kursi yang sudah masuk pesanan jadwal ini. Satu pesanan bisa berisi beberapa kursi.
+                ->through(fn ($j) => $j->setAttribute('kursi_terisi', $j->bookings->sum(fn ($b) => count($b->kursi)))),
             'adaFilm' => $adaFilm,
             'adaStudio' => $adaStudio,
             'bisaTambah' => $adaFilm && $adaStudio,
@@ -376,7 +365,7 @@ Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () 
 
     Route::get('/pesanan', function () {
         return view('admin.pesanan.index', [
-            'pesanan' => \App\Models\Booking::with(['user', 'seats', 'showtime.movie', 'showtime.studio'])
+            'pesanan' => \App\Models\Booking::with(['user', 'showtime.movie', 'showtime.studio'])
                 ->orderByDesc('id')
                 ->paginate(25),
         ]);
@@ -468,34 +457,12 @@ function aturanJadwal(\Illuminate\Http\Request $request): array
     return $data;
 }
 
-// Menyusun ulang kursi sebuah studio, dipanggil saat studio dibuat atau diubah.
-function susunKursi(\App\Models\Studio $studio, int $baris, int $perBaris): void
-{
-    $studio->seats()->delete();
-
-    $kursi = [];
-    $sekarang = now();
-
-    for ($b = 0; $b < $baris; $b++) {
-        for ($n = 1; $n <= $perBaris; $n++) {
-            $kursi[] = [
-                'studio_id' => $studio->id,
-                'seat_number' => chr(65 + $b) . $n,
-                'created_at' => $sekarang,
-                'updated_at' => $sekarang,
-            ];
-        }
-    }
-
-    \App\Models\Seat::insert($kursi);
-}
-
 // Studio yang kursinya sudah dipesan tidak boleh diubah susunannya, karena
-// menghapus kursi ikut menghapusnya dari pesanan yang memakainya.
+// nomor kursi di pesanan itu bisa hilang dari denah yang baru.
 function studioTerkunci(\App\Models\Studio $studio): bool
 {
     return $studio->exists
-        && \App\Models\Booking::whereHas('seats', fn ($q) => $q->where('studio_id', $studio->id))->exists();
+        && \App\Models\Booking::whereHas('showtime', fn ($q) => $q->where('studio_id', $studio->id))->exists();
 }
 
 // Satu studio tidak boleh memutar dua film yang waktunya bertabrakan, termasuk jeda bersih-bersih.

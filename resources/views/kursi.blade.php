@@ -25,11 +25,10 @@
         [$th, $bl, $hr] = explode('-', $tanggal->format('Y-m-d'));
         $tanggalTeks = $namaHari[$tanggal->dayOfWeek] . ', ' . (int) $hr . ' ' . $namaBulan[(int) $bl];
 
-        // Denah dibentuk dari kursi asli studio. seat_number berupa teks seperti "A1", jadi
-        // dipecah jadi huruf baris dan nomor, lalu diurutkan supaya "A10" tidak muncul sebelum "A2".
-        $barisKursi = $studio->seats
-            ->map(fn ($s) => ['kode' => $s->seat_number, 'baris' => preg_replace('/\d+$/', '', $s->seat_number), 'nomor' => (int) preg_replace('/^\D+/', '', $s->seat_number)])
-            ->sortBy([['baris', 'asc'], ['nomor', 'asc']])
+        // Denah dibentuk dari susunan kursi studio. Nomor kursi berupa teks seperti "A1", jadi
+        // dipecah jadi huruf baris dan nomor.
+        $barisKursi = collect($studio->daftarKursi())
+            ->map(fn ($k) => ['kode' => $k, 'baris' => preg_replace('/\d+$/', '', $k), 'nomor' => (int) preg_replace('/^\D+/', '', $k)])
             ->groupBy('baris');
 
         // Lorong di tengah baris terpanjang.

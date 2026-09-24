@@ -65,11 +65,9 @@ class AuthController extends Controller
             'email' => $data['email'],
             'password' => \Illuminate\Support\Facades\Hash::make($data['password']),
             'role' => 'user',
+            // Formulir mengirim id genre, yang disimpan di akun adalah namanya.
+            'favorite_genres' => \App\Models\Genre::whereIn('id', $data['genres'] ?? [])->pluck('name')->all(),
         ]);
-
-        if (!empty($data['genres'])) {
-            $user->genres()->attach($data['genres']);
-        }
 
         Auth::login($user);
 

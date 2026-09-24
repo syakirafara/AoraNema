@@ -23,6 +23,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'favorite_genres',
     ];
 
     /**
@@ -45,12 +46,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'favorite_genres' => 'array',
         ];
-    }
-
-    public function genres(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(Genre::class)->withTimestamps();
     }
 
     public function isAdmin(): bool

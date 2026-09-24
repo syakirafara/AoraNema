@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\Movie;
-use App\Models\Seat;
 use App\Models\Showtime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -95,7 +94,7 @@ class BookingController extends Controller
         $id = end($parts);
         $movie = Movie::findOrFail($id);
 
-        $showtime = Showtime::with(['movie', 'studio.seats'])->find((int) $request->input('jadwal'));
+        $showtime = Showtime::with(['movie', 'studio'])->find((int) $request->input('jadwal'));
 
         // Jadwal harus milik film di alamatnya, belum lewat, dan filmnya tidak diarsipkan.
         abort_if($showtime === null || $showtime->movie_id !== $movie->id || $showtime->show_time->isPast() || ! $movie->is_showing, 404);
@@ -103,11 +102,15 @@ class BookingController extends Controller
         return $showtime;
     }
 
-    // Kursi yang sedang diambil pada jadwal ini: milik pesanan lunas dan pesanan yang masih dalam batas
+    // Nomor kursi yang sedang diambil pada jadwal ini: milik pesanan lunas dan pesanan yang masih dalam batas
     // waktu bayar. Kursi dari pesanan yang batal atau kedaluwarsa sudah dilepas dan bisa dipilih lagi.
-    private function kursiDiambil(Showtime $showtime)
+    private function kursiDiambil(Showtime $showtime): array
     {
-        return Seat::whereHas('bookings', fn ($q) => $q->where('showtime_id', $showtime->id)->where('status', '!=', 'cancelled'));
+        return Booking::where('showtime_id', $showtime->id)
+            ->where('status', '!=', 'cancelled')
+            ->pluck('kursi')
+            ->flatten()
+            ->all();
     }
 
     // Nomor kursi yang sedang diambil, untuk ditandai terisi di denah.
@@ -115,17 +118,16 @@ class BookingController extends Controller
     {
         $this->lepasKedaluwarsa($showtime);
 
-        return $this->kursiDiambil($showtime)->pluck('seat_number')->all();
+        return $this->kursiDiambil($showtime);
     }
 
-    // Kursi dari alamat dicocokkan dengan kursi asli studio. Kursi yang tidak ada di studio,
+    // Kursi dari alamat dicocokkan dengan susunan kursi studio. Kursi yang tidak ada di studio,
     // atau lebih dari enam, membuat permintaan ditolak.
     private function ambilKursi(string $kursiInput, Showtime $showtime): array
     {
         $kursi = array_values(array_unique(array_filter(explode(',', $kursiInput))));
-        $adaDiStudio = $showtime->studio->seats->pluck('seat_number')->all();
 
-        abort_if(count($kursi) < 1 || count($kursi) > 6 || array_diff($kursi, $adaDiStudio), 404);
+        abort_if(count($kursi) < 1 || count($kursi) > 6 || array_diff($kursi, $showtime->studio->daftarKursi()), 404);
 
         return $kursi;
     }
@@ -199,10 +201,8 @@ class BookingController extends Controller
                     ->where('status', 'pending')
                     ->delete();
 
-                $kursi = $showtime->studio->seats->whereIn('seat_number', $kursiArr);
-
-                if ($diambil = $this->kursiDiambil($showtime)->whereKey($kursi->modelKeys())->value('seat_number')) {
-                    throw new \DomainException($diambil);
+                if ($diambil = array_intersect($kursiArr, $this->kursiDiambil($showtime))) {
+                    throw new \DomainException(reset($diambil));
                 }
 
                 // Cara bayar dicatat sebelum Midtrans dipanggil, supaya tetap tersimpan walaupun Midtrans gagal.
@@ -210,10 +210,11 @@ class BookingController extends Controller
                     'booking_code' => $bookingCode,
                     'user_id' => $userId,
                     'showtime_id' => $showtime->id,
+                    'kursi' => collect($kursiArr)->sort(SORT_NATURAL)->values()->all(),
                     'total_price' => $grossAmount, // Harga termasuk layanan
                     'status' => 'pending', // default
                     'payment_method' => $metode,
-                ])->seats()->attach($kursi->modelKeys());
+                ]);
             });
         } catch (\DomainException $e) {
             return back()->with('error', "Kursi {$e->getMessage()} baru saja dipesan orang lain. Pilih kursi lain.");
@@ -294,7 +295,7 @@ class BookingController extends Controller
         $namaBulan = [1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
         $pesanan = Booking::where('user_id', $request->user()->id)
-            ->with(['showtime.movie.genres', 'showtime.movie.jadwalMendatang.studio', 'showtime.studio', 'seats'])
+            ->with(['showtime.movie.genres', 'showtime.movie.jadwalMendatang.studio', 'showtime.studio'])
             ->orderBy('id')
             ->get()
             ->map(function ($b) use ($hariIni, $namaHari, $namaBulan) {
@@ -316,7 +317,7 @@ class BookingController extends Controller
                     'tanggalTeks' => $namaHari[$waktu->dayOfWeek] . ', ' . $waktu->day . ' ' . $namaBulan[$waktu->month] . ' ' . $waktu->year,
                     'jam' => $waktu->format('H:i'),
                     'layar' => $b->showtime->studio->label(),
-                    'kursi' => $b->seats->pluck('seat_number')->sort(SORT_NATURAL)->values()->all(),
+                    'kursi' => $b->kursi,
                     'total' => $b->total_price,
                     'status' => $b->status,
                     'kapan' => match (true) {
@@ -382,7 +383,7 @@ class BookingController extends Controller
         $this->cekStatus($booking_code);
 
         // 1. Ambil data transaksi dari database
-        $pesanan = Booking::where('booking_code', $booking_code)->with(['showtime.movie', 'showtime.studio', 'seats'])->first();
+        $pesanan = Booking::where('booking_code', $booking_code)->with(['showtime.movie', 'showtime.studio'])->first();
         
         if (! $pesanan) {
             abort(404, 'Tiket tidak ditemukan');
@@ -397,7 +398,7 @@ class BookingController extends Controller
         $jam = $tanggalCarbon->format('H:i');
         $layar = $pesanan->showtime->studio->label();
         
-        $kursi = $pesanan->seats->pluck('seat_number')->sort(SORT_NATURAL)->values()->all();
+        $kursi = $pesanan->kursi;
         
         $akhirPekan = in_array($tanggalCarbon->dayOfWeek, [0, 5, 6]);
 

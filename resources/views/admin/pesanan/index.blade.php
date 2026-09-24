@@ -47,7 +47,7 @@
                                 @endif
                             </td>
 
-                            <td class="py-4 pr-4">{{ $p->seats->pluck('seat_number')->sort(SORT_NATURAL)->implode(', ') ?: '—' }}</td>
+                            <td class="py-4 pr-4">{{ implode(', ', $p->kursi) ?: '—' }}</td>
 
                             <td class="py-4 pr-4 text-nema-muted">
                                 Rp {{ number_format($p->total_price, 0, ',', '.') }}

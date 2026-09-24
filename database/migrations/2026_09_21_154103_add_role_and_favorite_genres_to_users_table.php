@@ -11,13 +11,16 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             // Menambahkan kolom 'role' dengan nilai bawaan 'user'
             $table->string('role')->default('user')->after('password');
+            // Nama genre yang dipilih saat mendaftar, misalnya ["Action", "Drama"].
+            // Dipakai untuk rekomendasi pertama sebelum user punya riwayat nilai
+            $table->json('favorite_genres')->nullable()->after('role');
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('role');
+            $table->dropColumn(['role', 'favorite_genres']);
         });
     }
 };

@@ -66,7 +66,7 @@ class AoranemaMlService
             $payload['interactions'] = $interactions;
         } else {
             // Mode onboarding
-            $favorite_genres = $user->genres()->pluck('name')->toArray();
+            $favorite_genres = $user->favorite_genres ?? [];
             $payload['favorite_genres'] = $favorite_genres;
             $payload['favorite_movie_ids'] = $favorite_movie_ids;
         }

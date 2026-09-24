@@ -12,10 +12,18 @@ class Studio extends Model
     // Format layar yang bisa dipilih admin, sekaligus urutan tampilnya di halaman film.
     public const FORMAT = ['Regular 2D', 'Regular 3D', 'IMAX'];
 
-    // Satu studio memiliki banyak kursi
-    public function seats(): HasMany
+    // Nomor kursi di studio ini, baris demi baris: A1, A2, ..., lalu B1, dan seterusnya.
+    public function daftarKursi(): array
     {
-        return $this->hasMany(Seat::class);
+        $kursi = [];
+
+        for ($b = 0; $b < $this->baris; $b++) {
+            for ($n = 1; $n <= $this->kursi_per_baris; $n++) {
+                $kursi[] = chr(65 + $b) . $n;
+            }
+        }
+
+        return $kursi;
     }
 
     // Satu studio dipakai untuk banyak jadwal tayang

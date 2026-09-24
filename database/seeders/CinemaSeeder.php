@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Movie;
-use App\Models\Seat;
 use App\Models\Showtime;
 use App\Models\Studio;
 use Carbon\Carbon;
@@ -23,22 +22,13 @@ class CinemaSeeder extends Seeder
         ];
 
         foreach ($studios as $studioData) {
-            $studio = Studio::create([
+            // 2. Kursi baris A sampai E, masing-masing 10 nomor (Total 50 kursi per studio)
+            Studio::create([
                 'name' => $studioData['name'],
                 'capacity' => $studioData['capacity'],
+                'baris' => 5,
+                'kursi_per_baris' => 10,
             ]);
-
-            // 2. Buat Kursi baris A sampai E, masing-masing 10 nomor (Total 50 kursi per studio)
-            $rows = ['A', 'B', 'C', 'D', 'E'];
-            foreach ($rows as $row) {
-                for ($i = 1; $i <= 10; $i++) {
-                    Seat::create([
-                        'studio_id' => $studio->id,
-                        // Gabungkan huruf baris dan angka menjadi satu, contoh: "A" . "1" = "A1"
-                        'seat_number' => $row . $i, 
-                    ]);
-                }
-            }
         }
 
         $this->command->info('Membuat Jadwal Tayang Film...');

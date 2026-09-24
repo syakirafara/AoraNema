@@ -15,6 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->integer('capacity');
+            // susunan kursi: jumlah baris (A, B, C, ...) dan jumlah kursi di tiap baris. Nomor kursi
+            // seperti A1 atau C10 dihitung dari dua angka ini, jadi tidak perlu tabel kursi sendiri
+            $table->integer('baris');
+            $table->integer('kursi_per_baris');
             $table->timestamps();
         });
     }

@@ -55,10 +55,7 @@
                             <td class="py-4 pr-4 text-nema-muted">{{ $s->format }}</td>
 
                             <td class="py-4 pr-4 text-nema-muted">
-                                {{ $s->seats_count }} kursi
-                                @if ($s->seats_count !== $s->capacity)
-                                    <span class="text-nema-accent">(kapasitas tercatat {{ $s->capacity }})</span>
-                                @endif
+                                {{ $s->capacity }} kursi
                             </td>
 
                             <td class="py-4 pr-4 text-nema-muted">
