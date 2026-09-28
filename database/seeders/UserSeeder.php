@@ -23,6 +23,12 @@ class UserSeeder extends Seeder
             'password' => Hash::make('password123'),
         ])->forceFill(['role' => 'admin'])->save();
 
+        // Buat akun Kasir untuk menjual tiket di loket.
+        User::updateOrCreate(['email' => 'kasir@aoranema.com'], [
+            'name' => 'Kasir Loket 1',
+            'password' => Hash::make('password123'),
+        ])->forceFill(['role' => 'cashier'])->save();
+
         // Buat akun Penonton. Genre favorit diisi supaya rekomendasi di beranda langsung
         // muncul, karena layanan ML butuh minimal satu genre favorit atau satu nilai film.
         User::updateOrCreate(['email' => 'user@aoranema.com'], [

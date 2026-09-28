@@ -69,6 +69,13 @@
                                 </a>
                             @endif
 
+                            @if (Auth::user()->isCashier())
+                                <a href="{{ url('/kasir') }}"
+                                   class="flex min-h-11 items-center rounded-md px-3 text-sm text-nema-muted transition-colors hover:bg-nema-surface-2 hover:text-nema-text">
+                                    Loket Kasir
+                                </a>
+                            @endif
+
                             <div class="my-1 h-px bg-nema-line/40"></div>
 
                             <form method="POST" action="{{ url('/keluar') }}">

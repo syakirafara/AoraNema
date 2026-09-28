@@ -11,6 +11,10 @@ Aplikasi pemesanan tiket bioskop dengan Laravel. Rekomendasi film dan analisis s
 - Melihat tiket berkode batang di halaman Tiket Saya
 - Memberi nilai film setelah filmnya selesai, dan mengirim masukan
 
+**Kasir**
+- Menjual tiket di loket bioskop: pilih jam tayang dan kursi, terima uang tunai, lalu cetak tiketnya
+- Melihat penjualan loket hari ini
+
 **Admin**
 - Mengelola film, studio, dan jadwal tayang. Jadwal dilihat per hari dan per studio, seperti papan jadwal bioskop
 - Melihat daftar pesanan, mencarinya dari kode tiket atau nama pemesan, dan melihat penjualan hari ini
@@ -80,6 +84,7 @@ Aplikasi pemesanan tiket bioskop dengan Laravel. Rekomendasi film dan analisis s
 | Peran | Email | Kata sandi |
 |---|---|---|
 | Admin | admin@aoranema.com | password123 |
+| Kasir | kasir@aoranema.com | password123 |
 | Penonton | user@aoranema.com | password123 |
 
 Akun penonton sudah punya genre favorit, jadi rekomendasi di beranda langsung muncul selama layanan ML menyala. Kata sandi contoh ini hanya untuk belajar; ganti sebelum aplikasi dipasang di internet.
@@ -121,7 +126,8 @@ Aturan ini dipakai di halaman admin, halaman penonton, dan seeder. Angkanya ditu
 - Satu kursi hanya untuk satu pesanan. Kalau dua penonton membayar kursi yang sama bersamaan, yang lebih dulu diproses yang mendapatkannya, dan yang lain dikembalikan ke denah.
 - Paling banyak 6 kursi per pesanan. Harga tiket mengikuti tarif studio: hari biasa (Senin sampai Jumat), atau akhir pekan (Sabtu dan Minggu). Ada biaya layanan Rp3.000 per tiket.
 - Penjualan ditutup saat jam tayang tiba. Jadwal yang kursinya habis ditandai Penuh.
-- Pesanan yang tidak dibayar dalam 15 menit dibatalkan dan kursinya dilepas. Dalam mode belajar aturan ini tidak terlihat, karena pesanan langsung dianggap lunas (lihat bagian Pembayaran Midtrans).
+- Pesanan yang tidak dibayar dalam 15 menit dibatalkan dan kursinya dilepas. Tanpa kunci Midtrans aturan ini tidak terlihat, karena pesanan langsung dianggap lunas (lihat bagian Pembayaran Midtrans).
+- Kasir menjual tiket di loket dengan pembayaran tunai, paling banyak 10 kursi sekali transaksi, tanpa biaya layanan. Penjualan loket dicatat di tabel `bookings` atas nama akun kasir, dengan cara bayar `tunai`. Kursinya memakai denah yang sama dengan pemesanan online, jadi satu kursi tidak bisa terjual dua kali.
 - Tiket yang sudah dibayar tidak bisa dibatalkan atau ditukar. Film hanya bisa dinilai setelah selesai ditonton.
 - Film tampil sebagai "sedang tayang" hanya kalau sudah rilis dan punya jadwal yang bisa dipesan.
 
@@ -142,9 +148,19 @@ Tanpa layanan ML, aplikasi tetap berjalan. Bedanya, rekomendasi di beranda tidak
 
 ## Pembayaran Midtrans
 
-Isi `MIDTRANS_SERVER_KEY` di `.env` dengan kunci server sandbox dari dashboard Midtrans. Karena proyek ini untuk belajar, pesanan langsung dianggap lunas begitu halaman Midtrans dibuka. Kalau kuncinya dikosongkan, halaman Midtrans dilewati dan pesanan juga langsung lunas.
+Tanpa kunci Midtrans, halaman pembayaran dilewati dan pesanan langsung dianggap lunas. Cara ini cukup untuk mencoba alur pemesanan sampai tiket.
 
-Untuk pembayaran sungguhan, lihat komentar di `BookingController::prosesBayar`.
+Untuk mencoba pembayaran sungguhan, isi `MIDTRANS_SERVER_KEY` di `.env` dengan kunci server sandbox dari dashboard Midtrans. Penonton akan diarahkan ke halaman Midtrans, dan pesanannya menunggu sampai dibayar. Di mode sandbox tidak ada uang sungguhan: bayar lewat [simulator Midtrans](https://simulator.sandbox.midtrans.com).
+
+Status pesanan diperbarui dengan dua cara:
+
+- Saat penonton kembali ke halaman tiket atau membuka Tiket Saya, aplikasi menanyakan statusnya ke Midtrans.
+- Midtrans mengirim pemberitahuan (webhook) ke `/midtrans/notifikasi`. Cara ini hanya jalan kalau website bisa diakses dari internet, misalnya lewat [ngrok](https://ngrok.com):
+  1. Jalankan `ngrok http 8000` selagi `php artisan serve` menyala.
+  2. Buka aplikasi lewat alamat https yang diberikan ngrok, misalnya `https://contoh.ngrok-free.app`.
+  3. Di dashboard Midtrans sandbox, buka Settings, Payment, lalu isi Notification URL dengan `https://contoh.ngrok-free.app/midtrans/notifikasi`.
+
+Pesanan yang tidak dibayar dalam 15 menit dibatalkan dan kursinya dilepas.
 
 ## Struktur database
 

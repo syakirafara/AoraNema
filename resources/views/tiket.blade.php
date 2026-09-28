@@ -31,7 +31,7 @@
         @php
             [$judulTiket, $ketTiket] = match ($keadaan) {
                 'batal' => ['Pesanan dibatalkan', 'Tiket ini sudah tidak berlaku.'],
-                'belum-bayar' => ['Menunggu pembayaran', 'Kode masuk muncul di sini setelah pembayaran diterima.'],
+                'belum-bayar' => ['Menunggu pembayaran', 'Kode masuk muncul di sini setelah pembayaran diterima. Kalau halaman pembayaran Midtrans sudah tertutup, pesan ulang dari halaman film; pesanan ini batal sendiri setelah ' . \App\Models\Booking::BATAS_BAYAR_MENIT . ' menit.'],
                 'selesai' => ['Film sudah selesai', 'Tiket ini sudah lewat dan tidak bisa dipakai masuk lagi.'],
                 default => ['Tiketmu siap', 'Tunjukkan kode ini ke petugas di pintu studio. Film mulai sekitar ' . \App\Models\Showtime::IKLAN_MENIT . ' menit setelah jam tayang.'],
             };
@@ -40,6 +40,20 @@
         <h1 class="text-center text-2xl sm:text-3xl">{{ $judulTiket }}</h1>
 
         <p class="mt-2 text-center text-sm text-nema-muted">{{ $ketTiket }}</p>
+
+        {{-- Muncul sekali, tepat setelah kasir menyelesaikan penjualan tunai di loket. --}}
+        @if (session()->has('kembalian'))
+            <dl role="status" class="mt-6 grid grid-cols-2 gap-4 rounded-lg border border-nema-accent bg-nema-surface p-4 text-sm">
+                <div>
+                    <dt class="text-nema-muted">Uang diterima</dt>
+                    <dd class="mt-1 text-lg">Rp {{ number_format(session('uang_diterima'), 0, ',', '.') }}</dd>
+                </div>
+                <div>
+                    <dt class="text-nema-muted">Kembalian</dt>
+                    <dd class="mt-1 text-lg font-semibold">Rp {{ number_format(session('kembalian'), 0, ',', '.') }}</dd>
+                </div>
+            </dl>
+        @endif
 
         <div data-tiket class="mt-8 overflow-hidden rounded-2xl bg-nema-surface">
 
@@ -83,7 +97,8 @@
                     <dd class="mt-1">{{ implode(', ', $kursi) }} ({{ count($kursi) }} tiket)</dd>
                 </div>
                 <div>
-                    <dt class="text-nema-muted">Pemesan</dt>
+                    {{-- Tiket loket dicatat atas nama kasir yang melayani, bukan pembelinya. --}}
+                    <dt class="text-nema-muted">{{ $pesanan->diLoket() ? 'Dijual oleh' : 'Pemesan' }}</dt>
                     <dd class="mt-1">{{ $pesanan->user->name }}</dd>
                 </div>
                 <div>
@@ -119,10 +134,17 @@
                 Cetak atau simpan PDF
             </button>
 
-            <a href="{{ url('/') }}"
-               class="inline-flex min-h-11 items-center rounded-md border border-nema-line px-6 transition-colors hover:bg-nema-surface">
-                Kembali ke beranda
-            </a>
+            @if (auth()->user()->isCashier())
+                <a href="{{ url('/kasir') }}"
+                   class="inline-flex min-h-11 items-center rounded-md border border-nema-line px-6 transition-colors hover:bg-nema-surface">
+                    Kembali ke loket
+                </a>
+            @else
+                <a href="{{ url('/') }}"
+                   class="inline-flex min-h-11 items-center rounded-md border border-nema-line px-6 transition-colors hover:bg-nema-surface">
+                    Kembali ke beranda
+                </a>
+            @endif
         </div>
 
     </div>

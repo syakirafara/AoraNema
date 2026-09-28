@@ -88,7 +88,6 @@
                 <p class="mt-4 text-sm text-nema-muted">
                     Pembayaran diproses oleh Midtrans. Selesaikan dalam {{ \App\Models\Booking::BATAS_BAYAR_MENIT }} menit;
                     lewat dari itu pesanan batal dan kursinya dilepas untuk penonton lain.
-                    Karena proyek ini untuk belajar, pesanan langsung dianggap lunas begitu halaman Midtrans dibuka.
                 </p>
 
                 <div class="mt-6 rounded-xl border border-nema-line p-4 text-sm text-nema-muted">

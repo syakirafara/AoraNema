@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Services\MidtransService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,75 +24,9 @@ class BookingController extends Controller
         'ewallet' => ['gopay', 'shopeepay'],
     ];
 
-    // Menyiapkan pustaka Midtrans. Mengembalikan false kalau kunci server belum dipasang di .env.
-    private function midtransSiap(): bool
+    // Urusan status pembayaran Midtrans ada di App\Services\MidtransService, karena loket kasir juga memakainya.
+    public function __construct(private MidtransService $midtrans)
     {
-        Config::$serverKey = (string) config('services.midtrans.server_key');
-        Config::$isProduction = (bool) config('services.midtrans.is_production');
-        Config::$isSanitized = true;
-        Config::$is3ds = true;
-
-        return Config::$serverKey !== '';
-    }
-
-    // Menyamakan status pesanan dengan status transaksinya di Midtrans. Pesanan hanya menjadi
-    // lunas kalau Midtrans menyatakan uangnya sudah diterima. Pesanan yang batal atau kedaluwarsa
-    // melepas kursinya, supaya bisa dipesan orang lain. Hanya pesanan yang masih menunggu
-    // pembayaran yang diubah, jadi pesanan yang sudah batal tidak bisa hidup lagi.
-    private function terapkanStatus(string $bookingCode, string $statusMidtrans, ?string $statusPenipuan = null): void
-    {
-        $lunas = $statusMidtrans === 'settlement' || ($statusMidtrans === 'capture' && $statusPenipuan !== 'challenge');
-        $batal = in_array($statusMidtrans, ['expire', 'cancel', 'deny', 'failure']);
-
-        $pesanan = Booking::where('booking_code', $bookingCode)->where('status', Booking::MENUNGGU);
-
-        if ($lunas) {
-            $pesanan->update(['status' => Booking::LUNAS]);
-        } elseif ($batal) {
-            $pesanan->update(['status' => Booking::BATAL]);
-        }
-    }
-
-    // Menanyakan status pesanan yang masih menunggu pembayaran ke Midtrans. Dipanggil saat penonton
-    // kembali dari halaman Midtrans dan saat membuka Tiket Saya, karena pemberitahuan dari Midtrans
-    // (webhook) tidak bisa sampai ke laptop yang tidak bisa diakses dari internet.
-    private function cekStatus(string $bookingCode): void
-    {
-        $pesanan = Booking::where('booking_code', $bookingCode)->first();
-
-        if (! $pesanan || $pesanan->status !== Booking::MENUNGGU || ! $this->midtransSiap()) {
-            return;
-        }
-
-        try {
-            // Kode pesanan juga dipakai sebagai order_id di Midtrans.
-            $status = \Midtrans\Transaction::status($bookingCode);
-            $this->terapkanStatus($bookingCode, $status->transaction_status, $status->fraud_status ?? null);
-        } catch (\Exception $e) {
-            // Midtrans menjawab 404 kalau penonton belum memilih cara bayar di halaman Midtrans.
-            // Kalau batas bayarnya sudah lewat, pesanan itu dianggap kedaluwarsa. Galat lain,
-            // misalnya internet putus, tidak mengubah apa pun supaya pesanan tidak batal karena salah baca.
-            if (str_contains($e->getMessage(), '404') && $pesanan->created_at->lt(now()->subMinutes(Booking::BATAS_BAYAR_MENIT))) {
-                $this->terapkanStatus($bookingCode, 'expire');
-            }
-        }
-    }
-
-    // Melepas kursi dari pesanan di jadwal ini yang sudah melewati batas bayar tanpa dibayar.
-    private function lepasKedaluwarsa(Showtime $showtime): void
-    {
-        $kedaluwarsa = Booking::where('showtime_id', $showtime->id)
-            ->where('status', Booking::MENUNGGU)
-            ->where('created_at', '<', now()->subMinutes(Booking::BATAS_BAYAR_MENIT));
-
-        // Tanpa Midtrans tidak ada yang bisa ditanyakan, jadi pesanan yang lewat batas langsung dibatalkan.
-        if (! $this->midtransSiap()) {
-            $kedaluwarsa->update(['status' => Booking::BATAL]);
-
-            return;
-        }
-
-        $kedaluwarsa->pluck('booking_code')->each(fn ($kode) => $this->cekStatus($kode));
     }
 
     // Jadwal yang dipilih di halaman detail film dibawa lewat ?jadwal={id}. Studio, kursi, jam,
@@ -126,7 +61,7 @@ class BookingController extends Controller
     // dihitung, karena pesanan itu dibatalkan dan diganti begitu ia menekan Bayar lagi.
     private function kursiTerisi(Showtime $jadwal, int $userId): array
     {
-        $this->lepasKedaluwarsa($jadwal);
+        $this->midtrans->lepasKedaluwarsa($jadwal);
 
         $milikSendiri = Booking::where('showtime_id', $jadwal->id)
             ->where('user_id', $userId)
@@ -227,7 +162,7 @@ class BookingController extends Controller
     public function prosesBayar(Request $request, string $slug)
     {
         $showtime = $this->ambilJadwal($request, $slug);
-        $this->lepasKedaluwarsa($showtime);
+        $this->midtrans->lepasKedaluwarsa($showtime);
         $metode = $request->input('metode');
 
         abort_unless(in_array($metode, ['qris', 'va', 'ewallet']), 404);
@@ -285,8 +220,8 @@ class BookingController extends Controller
 
         // Tanpa kunci Midtrans (misalnya di laptop pengembang), pesanan dianggap lunas supaya alurnya
         // tetap bisa dicoba sampai tiket. Begitu kunci dipasang, jalur ini tidak dipakai lagi.
-        if (! $this->midtransSiap()) {
-            $this->terapkanStatus($bookingCode, 'settlement');
+        if (! $this->midtrans->siap()) {
+            $this->midtrans->terapkanStatus($bookingCode, 'settlement');
 
             return redirect('/tiket/' . $bookingCode)->with('warning', 'Pembayaran belum tersambung ke Midtrans, jadi pesanan ini dianggap lunas tanpa ditagih. Tiket ini hanya untuk uji coba.');
         }
@@ -312,7 +247,9 @@ class BookingController extends Controller
             'callbacks' => [
                 'finish' => url('/tiket/' . $bookingCode),
             ],
+            // Batas bayar berlaku untuk transaksinya dan juga halaman pembayaran Midtrans.
             'expiry' => ['unit' => 'minutes', 'duration' => Booking::BATAS_BAYAR_MENIT],
+            'page_expiry' => ['unit' => 'minutes', 'duration' => Booking::BATAS_BAYAR_MENIT],
             'enabled_payments' => self::CARA_BAYAR_MIDTRANS[$metode],
         ];
 
@@ -321,17 +258,14 @@ class BookingController extends Controller
         } catch (\Exception $e) {
             // Halaman Midtrans gagal dibuat. Pesanannya dibatalkan supaya kursinya tidak tertahan.
             report($e);
-            $this->terapkanStatus($bookingCode, 'failure');
+            $this->midtrans->terapkanStatus($bookingCode, 'failure');
 
             return back()->with('error', 'Halaman pembayaran gagal dibuka. Coba lagi sebentar lagi.');
         }
 
-        // Proyek ini untuk belajar dan tidak ada yang membayar sungguhan, jadi pesanan langsung
-        // dianggap lunas begitu halaman Midtrans dibuka. Halaman Midtrans tetap ditampilkan untuk
-        // memperlihatkan alurnya. Untuk pembayaran sungguhan, hapus baris terapkanStatus ini:
-        // pesanan akan menunggu sampai Midtrans menyatakan lunas lewat cekStatus() dan notifikasiMidtrans().
-        $this->terapkanStatus($bookingCode, 'settlement');
-
+        // Pesanan menunggu sampai Midtrans menyatakan lunas: lewat notifikasiMidtrans() kalau website
+        // bisa diakses dari internet (misalnya lewat ngrok), atau lewat cekStatus() saat penonton
+        // kembali ke halaman tiket dan membuka Tiket Saya.
         return redirect()->away($snapUrl);
     }
 
@@ -340,7 +274,7 @@ class BookingController extends Controller
     public function notifikasiMidtrans(Request $request)
     {
         // Tanpa kunci server, tanda tangan tidak bisa diperiksa, jadi pemberitahuan ditolak.
-        abort_unless($this->midtransSiap(), 404);
+        abort_unless($this->midtrans->siap(), 404);
 
         $isi = $request->all();
         $kode = (string) ($isi['order_id'] ?? '');
@@ -353,7 +287,7 @@ class BookingController extends Controller
 
         if ($pesanan?->status === Booking::MENUNGGU) {
             // Status transaksi tidak ikut ditandatangani, jadi statusnya ditanyakan langsung ke Midtrans.
-            $this->cekStatus($kode);
+            $this->midtrans->cekStatus($kode);
         } elseif ($pesanan?->status !== Booking::LUNAS && in_array($isi['transaction_status'] ?? '', ['settlement', 'capture'])) {
             // Uang masuk untuk pesanan yang sudah batal atau tidak ada. Dicatat di log supaya
             // pengelola bisa mengembalikan dananya.
@@ -373,7 +307,7 @@ class BookingController extends Controller
         Booking::where('user_id', $request->user()->id)
             ->where('status', Booking::MENUNGGU)
             ->pluck('booking_code')
-            ->each(fn ($kode) => $this->cekStatus($kode));
+            ->each(fn ($kode) => $this->midtrans->cekStatus($kode));
 
         $namaHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         $namaBulan = [1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -454,18 +388,20 @@ class BookingController extends Controller
 
         $pesanan = Booking::where('booking_code', $kode)->first();
 
-        // Tiket hanya bisa dibuka pemesannya dan admin. Tanpa ini, siapa pun yang login
-        // dan tahu kodenya bisa melihat tiket orang lain.
-        abort_unless($pesanan && ($pesanan->user_id === $request->user()->id || $request->user()->isAdmin()), 404);
+        // Tiket hanya bisa dibuka pemesannya dan admin, dan tiket loket juga bisa dibuka kasir mana pun
+        // untuk dicetak ulang. Tanpa ini, siapa pun yang login dan tahu kodenya bisa melihat tiket orang lain.
+        $boleh = $pesanan && ($pesanan->user_id === $request->user()->id
+            || $request->user()->isAdmin()
+            || ($pesanan->diLoket() && $request->user()->isCashier()));
+
+        abort_unless($boleh, 404);
 
         // Penonton biasanya sampai di sini dari halaman Midtrans, jadi statusnya ditanyakan dulu.
-        $this->cekStatus($kode);
+        $this->midtrans->cekStatus($kode);
         $pesanan = $pesanan->fresh(['user', 'showtime.movie', 'showtime.studio']);
 
         $film = $pesanan->showtime->movie;
         $tanggalCarbon = $pesanan->showtime->show_time;
-
-        $daftarMetode = ['qris' => 'QRIS', 'va' => 'Transfer Bank', 'ewallet' => 'Dompet Digital'];
 
         // Kode batang hanya ditampilkan untuk tiket yang masih bisa dipakai masuk: sudah dibayar dan
         // filmnya belum selesai. Tiket lain tetap bisa dibuka, tapi tanpa kode yang bisa dipindai.
@@ -486,7 +422,7 @@ class BookingController extends Controller
             'jam' => $tanggalCarbon->format('H:i'),
             'layar' => $pesanan->showtime->studio->label(),
             'kursi' => $pesanan->kursi,
-            'namaMetode' => $daftarMetode[$pesanan->payment_method ?? ''] ?? 'Midtrans',
+            'namaMetode' => Booking::CARA_BAYAR[$pesanan->payment_method ?? ''] ?? 'Midtrans',
             'total' => $pesanan->total_price,
             'kode' => $kode,
             'batang' => $generator->getBarcode($kode, $generator::TYPE_CODE_39, 2, 64, 'black'),

@@ -24,9 +24,13 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
             
-            // Admin langsung ke panel admin. Penonton kembali ke halaman yang tadi ingin dibuka,
-            // misalnya pilih kursi, atau ke beranda kalau tidak ada.
-            return redirect()->intended($request->user()->isAdmin() ? '/admin' : '/');
+            // Admin langsung ke panel admin dan kasir ke loket. Penonton kembali ke halaman yang tadi
+            // ingin dibuka, misalnya pilih kursi, atau ke beranda kalau tidak ada.
+            return redirect()->intended(match (true) {
+                $request->user()->isAdmin() => '/admin',
+                $request->user()->isCashier() => '/kasir',
+                default => '/',
+            });
         }
 
         return back()->withErrors([

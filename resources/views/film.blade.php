@@ -236,6 +236,10 @@
                                         <p class="mt-5 rounded-md border border-nema-line bg-nema-surface-2 p-3 text-sm text-nema-muted">
                                             Akun admin hanya bisa melihat jadwal, tidak bisa memesan tiket.
                                         </p>
+                                    @elseif (auth()->check() && auth()->user()->isCashier())
+                                        <p class="mt-5 rounded-md border border-nema-line bg-nema-surface-2 p-3 text-sm text-nema-muted">
+                                            Akun kasir menjual tiket lewat <a href="{{ url('/kasir') }}" class="text-nema-accent underline">Loket Kasir</a>.
+                                        </p>
                                     @else
                                         <a data-lanjut
                                             class="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-nema-maroon px-6 font-medium text-white transition-colors hover:bg-nema-maroon-hover sm:w-auto">

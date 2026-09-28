@@ -23,8 +23,17 @@ class Booking extends Model
     // Biaya layanan per tiket, ditagihkan di atas harga tiket.
     public const BIAYA_LAYANAN = 3000;
 
-    // Paling banyak enam kursi dalam satu pesanan.
+    // Paling banyak enam kursi dalam satu pesanan online, dan sepuluh kursi sekali transaksi di loket.
     public const MAKS_KURSI = 6;
+    public const MAKS_KURSI_LOKET = 10;
+
+    // Cara bayar. Tiga yang pertama lewat Midtrans; 'tunai' untuk penjualan di loket oleh kasir.
+    public const CARA_BAYAR = [
+        'qris' => 'QRIS',
+        'va' => 'Transfer Bank',
+        'ewallet' => 'Dompet Digital',
+        'tunai' => 'Tunai di loket',
+    ];
 
     // Batas waktu bayar. Selama itu kursi ditahan untuk pemesan; lewat dari itu kursinya dilepas.
     public const BATAS_BAYAR_MENIT = 15;
@@ -46,6 +55,12 @@ class Booking extends Model
     public function showtime(): BelongsTo
     {
         return $this->belongsTo(Showtime::class);
+    }
+
+    // Pesanan yang dijual kasir di loket. Pemesannya (user_id) adalah akun kasir yang melayani.
+    public function diLoket(): bool
+    {
+        return $this->payment_method === 'tunai';
     }
 
     public function namaStatus(): string

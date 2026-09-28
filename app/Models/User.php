@@ -66,6 +66,12 @@ class User extends Authenticatable
         return $this->role === 'user';
     }
 
+    // Petugas loket yang menjual tiket langsung di bioskop.
+    public function isCashier(): bool
+    {
+        return $this->role === 'cashier';
+    }
+
     public function bookings(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Booking::class);

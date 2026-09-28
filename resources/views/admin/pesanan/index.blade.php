@@ -15,7 +15,7 @@
         {{-- Ringkasan penjualan hari ini, dari pesanan yang sudah lunas. --}}
         <dl class="mt-6 grid gap-4 sm:grid-cols-3">
             <div class="rounded-xl bg-nema-surface p-4">
-                <dt class="text-sm text-nema-muted">Pendapatan hari ini</dt>
+                <dt class="text-sm text-nema-muted">Pendapatan hari ini, online dan loket</dt>
                 <dd class="mt-1 text-2xl font-semibold">{{ $rp($pendapatanHariIni) }}</dd>
             </div>
             <div class="rounded-xl bg-nema-surface p-4">
@@ -79,8 +79,14 @@
                             <td class="py-4 pr-4 text-nema-muted">{{ $p->created_at->format('d/m/Y H:i') }}</td>
 
                             <td class="py-4 pr-4">
-                                {{ $p->user?->name ?? '—' }}
-                                <span class="block text-xs text-nema-muted">{{ $p->user?->email }}</span>
+                                {{-- Tiket loket dicatat atas nama kasir yang menjualnya. --}}
+                                @if ($p->diLoket())
+                                    Pembeli di loket
+                                    <span class="block text-xs text-nema-muted">dijual {{ $p->user?->name }}</span>
+                                @else
+                                    {{ $p->user?->name ?? '—' }}
+                                    <span class="block text-xs text-nema-muted">{{ $p->user?->email }}</span>
+                                @endif
                             </td>
 
                             <td class="py-4 pr-4">

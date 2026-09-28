@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MovieController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\KasirController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\IsAdmin;
 
@@ -41,6 +42,13 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/daftar', [AuthController::class, 'showRegisterForm']);
     Route::post('/daftar', [AuthController::class, 'register'])->middleware('throttle:10,1,daftar');
+});
+
+// Loket bioskop, hanya untuk akun dengan role cashier.
+Route::prefix('kasir')->middleware(['auth', \App\Http\Middleware\IsCashier::class])->group(function () {
+    Route::get('/', [KasirController::class, 'index']);
+    Route::get('/jadwal/{showtime}', [KasirController::class, 'kursi']);
+    Route::post('/jadwal/{showtime}', [KasirController::class, 'jual']);
 });
 
 // Halaman admin, hanya untuk akun dengan role admin.
