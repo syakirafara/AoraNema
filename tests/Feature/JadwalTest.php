@@ -172,23 +172,24 @@ class JadwalTest extends TestCase
         $this->assertSame(100, $filmA->fresh()->duration_minutes);
     }
 
-    public function test_mengarsipkan_film_melepas_jadwal_yang_belum_dipesan(): void
+    public function test_film_yang_diarsipkan_bisa_ditayangkan_lagi_bersama_jadwalnya(): void
     {
-        $film = $this->film();
-        $studio = $this->studio();
+        $film = $this->film(['title' => 'Film Arsip']);
+        $jadwal = Showtime::create(['movie_id' => $film->id, 'studio_id' => $this->studio()->id, 'show_time' => '2026-10-05 13:00']);
+        $alamatKursi = '/kursi/' . $film->slug() . '?jadwal=' . $jadwal->id;
 
-        $dipesan = Showtime::create(['movie_id' => $film->id, 'studio_id' => $studio->id, 'show_time' => '2026-10-05 13:00']);
-        Showtime::create(['movie_id' => $film->id, 'studio_id' => $studio->id, 'show_time' => '2026-10-05 16:00']);
-
-        Booking::create([
-            'booking_code' => 'ABC123', 'user_id' => User::factory()->create()->id, 'showtime_id' => $dipesan->id,
-            'kursi' => ['A1'], 'total_price' => 48000, 'status' => Booking::LUNAS,
-        ]);
-
+        // Diarsipkan: film hilang dari beranda dan tiketnya tidak dijual, tapi jadwalnya tetap ada.
         $this->post('/admin/film/' . $film->id . '/arsip');
+        $this->assertFalse($film->fresh()->is_showing);
+        $this->assertSame(1, Showtime::count());
+        $this->get('/')->assertDontSee('Film Arsip');
+        $this->actingAs(User::factory()->create())->get($alamatKursi)->assertNotFound();
 
-        // Jadwal yang sudah dipesan tetap diputar untuk pemegang tiket; yang kosong dihapus.
-        $this->assertSame([$dipesan->id], Showtime::pluck('id')->all());
+        // Ditayangkan lagi: film dan jadwalnya langsung muncul kembali.
+        $this->actingAs(User::factory()->create(['role' => 'admin']))->post('/admin/film/' . $film->id . '/arsip');
+        $this->assertTrue($film->fresh()->is_showing);
+        $this->get('/')->assertSee('Film Arsip');
+        $this->actingAs(User::factory()->create())->get($alamatKursi)->assertOk();
     }
 
     public function test_jadwal_yang_sudah_dipesan_tidak_bisa_diubah_atau_dihapus(): void

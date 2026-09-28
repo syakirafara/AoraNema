@@ -18,6 +18,12 @@ class Movie extends Model
     // biar kolom 'id' gak bisa diisi sembarangan misalnya lewat form input
     protected $guarded = ['id'];
 
+    // Kolom tinyint dari database dibaca sebagai true/false, bukan 0/1.
+    protected $casts = [
+        'is_showing' => 'boolean',
+        'pilihan' => 'boolean',
+    ];
+
     // relasi ke tabel genre (many-to-many)
     public function genres(): BelongsToMany
     {
@@ -48,8 +54,8 @@ class Movie extends Model
             'durasiTeks' => $this->duration_minutes
                 ? intdiv($this->duration_minutes, 60) . 'j ' . ($this->duration_minutes % 60) . 'm'
                 : null,
-            // Diisi admin. TMDB tidak menyediakan batas usia Indonesia, jadi film dari seeder
-            // kosong dan tandanya tidak ditampilkan sampai admin mengisinya.
+            // Diisi LengkapiFilmSeeder dari rating TMDB, dan bisa diubah admin. Film yang batas
+            // usianya kosong tidak menampilkan tandanya.
             'usia' => $this->usia,
             'pilihan' => (bool) $this->pilihan,
             'format' => $this->formatTayang(),

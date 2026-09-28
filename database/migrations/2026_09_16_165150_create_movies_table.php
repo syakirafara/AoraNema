@@ -20,7 +20,7 @@ return new class extends Migration
             $table->text('synopsis')->nullable();
             $table->string('poster_url')->nullable();
             $table->integer('duration_minutes')->nullable();
-            // batas usia penonton dari LSF: SU, 13+, 17+, atau 21+. TMDB tidak menyediakannya
+            // batas usia penonton dari LSF: SU, 13+, 17+, atau 21+. Diisi LengkapiFilmSeeder dari TMDB
             $table->string('usia', 3)->nullable();
             $table->date('release_date')->nullable();
             $table->boolean('is_showing')->default(true);

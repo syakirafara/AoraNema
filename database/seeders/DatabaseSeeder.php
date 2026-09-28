@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MovieSeeder::class,
             FilmAkanTayangSeeder::class,
+            LengkapiFilmSeeder::class,
             UserSeeder::class,
             CinemaSeeder::class,
             JadwalSeeder::class,

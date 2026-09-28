@@ -131,7 +131,7 @@
                                             <td class="py-3 pr-4">
                                                 {{ $j->movie->title }}
                                                 <span class="block text-xs text-nema-muted">
-                                                    {{ $j->movie->durasi() }} menit{{ $j->movie->is_showing ? '' : ' · diarsipkan' }}
+                                                    {{ $j->movie->durasi() }} menit{{ $j->movie->is_showing ? '' : ' · film diarsipkan, tidak dijual' }}
                                                 </span>
                                             </td>
 

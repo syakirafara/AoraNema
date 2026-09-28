@@ -12,8 +12,9 @@
             <div>
                 <h1 class="text-2xl sm:text-3xl">Kelola Film</h1>
                 <p class="mt-1 max-w-prose text-sm text-nema-muted">
-                    Film yang sudah tidak layak tayang diarsipkan, bukan dihapus. Pengunjung
-                    berhenti melihatnya, tapi riwayat penjualannya tetap tersimpan.
+                    Film yang sudah tidak layak tayang diarsipkan, bukan dihapus. Pengunjung berhenti
+                    melihatnya dan tiketnya berhenti dijual, tapi jadwal dan riwayat penjualannya tetap
+                    tersimpan, jadi film bisa ditayangkan lagi kapan saja.
                 </p>
             </div>
 
@@ -132,8 +133,8 @@
         </div>
 
         <p class="mt-6 max-w-prose text-xs text-nema-muted">
-            Tiket terjual dihitung dari pesanan berstatus lunas. Angkanya masih nol sampai
-            sistem akun jadi, karena setiap pesanan wajib punya pemesan.
+            Tiket terjual dihitung dari kursi di pesanan yang sudah lunas. Jadwal mendatang adalah
+            jadwal yang belum lewat, termasuk jadwal film yang diarsipkan.
         </p>
 
         <div class="mt-8">

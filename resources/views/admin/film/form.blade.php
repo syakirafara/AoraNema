@@ -135,7 +135,8 @@
                 <span>
                     Sedang tayang
                     <span class="mt-1 block text-xs text-nema-muted">
-                        Hilangkan centang untuk mengarsipkan film. Jadwal mendatangnya yang belum dipesan ikut dihapus.
+                        Hilangkan centang untuk mengarsipkan film: film disembunyikan dari penonton dan tiketnya
+                        berhenti dijual. Jadwalnya tetap disimpan.
                     </span>
                 </span>
             </label>

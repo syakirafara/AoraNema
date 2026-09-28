@@ -86,7 +86,7 @@ Akun penonton sudah punya genre favorit, jadi rekomendasi di beranda langsung mu
 
 ### Data contoh
 
-Seeder utama membuat 10 film yang sedang tayang dan beberapa film yang akan tayang dari TMDB, dua akun contoh, delapan studio, dan jadwal tayang untuk hari ini sampai enam hari ke depan. Jadwalnya disusun mengikuti aturan bioskop di bawah, jadi tidak ada yang bertabrakan.
+Seeder utama membuat 10 film yang sedang tayang dan beberapa film yang akan tayang dari TMDB lengkap dengan batas usianya, dua akun contoh, delapan studio, dan jadwal tayang untuk hari ini sampai enam hari ke depan. Jadwalnya disusun mengikuti aturan bioskop di bawah, jadi tidak ada yang bertabrakan.
 
 Jadwal hanya dibuat untuk tujuh hari. Kalau proyek dibuka lagi setelah itu, susun ulang jadwalnya:
 
@@ -100,6 +100,7 @@ Seeder berikut dijalankan sendiri kalau perlu:
 
 | Perintah | Isinya |
 |---|---|
+| `php artisan db:seed --class=LengkapiFilmSeeder` | Mengisi batas usia film yang masih kosong, dari rating TMDB. Batas usia yang sudah diisi admin tidak ditimpa |
 | `php artisan db:seed --class=MasukanContohSeeder` | Contoh masukan untuk halaman admin. Layanan ML harus menyala |
 
 ## Aturan bioskop
@@ -114,7 +115,7 @@ Aturan ini dipakai di halaman admin, halaman penonton, dan seeder. Angkanya ditu
 - Film baru bisa dijadwalkan mulai tanggal rilisnya, dan wajib punya durasi.
 - Mengubah durasi atau tanggal rilis film ditolak kalau membuat jadwalnya bertabrakan atau tayang sebelum rilis.
 - Jadwal yang sudah dipesan tidak bisa diubah atau dihapus. Format dan susunan kursi studionya juga dikunci sampai jadwal itu lewat.
-- Film yang diarsipkan berhenti dijual. Jadwal mendatangnya yang belum dipesan dihapus, sedangkan yang sudah dipesan tetap diputar.
+- Film yang diarsipkan disembunyikan dari penonton dan tiketnya berhenti dijual. Jadwalnya tetap disimpan dan tetap memakai studio, jadi film bisa ditayangkan lagi bersama jadwalnya. Tiket yang sudah terjual tetap berlaku.
 
 **Pemesanan**
 - Satu kursi hanya untuk satu pesanan. Kalau dua penonton membayar kursi yang sama bersamaan, yang lebih dulu diproses yang mendapatkannya, dan yang lain dikembalikan ke denah.

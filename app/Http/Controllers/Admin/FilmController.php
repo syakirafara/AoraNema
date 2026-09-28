@@ -64,7 +64,7 @@ class FilmController extends Controller
     public function update(Request $request, Movie $movie)
     {
         $data = $this->aturan($request);
-        $diarsipkan = $movie->is_showing && ! $data['is_showing'];
+        $statusBerubah = (bool) $movie->is_showing !== $data['is_showing'];
 
         // Durasi dan tanggal rilis menentukan jadwal. Perubahannya disimpan dalam transaksi, lalu jadwal
         // mendatang film ini diperiksa ulang. Kalau ada yang jadi bertabrakan atau tayang sebelum
@@ -86,9 +86,7 @@ class FilmController extends Controller
             return back()->withInput()->with('gagal', $e->getMessage());
         }
 
-        $pesan = 'Film "' . $movie->title . '" disimpan.';
-
-        return redirect('/admin/film')->with('sukses', $diarsipkan ? $pesan . ' ' . $this->lepasJadwal($movie) : $pesan);
+        return redirect('/admin/film')->with('sukses', $statusBerubah ? $this->pesanStatus($movie) : 'Film "' . $movie->title . '" disimpan.');
     }
 
     public function destroy(Movie $movie)
@@ -115,27 +113,24 @@ class FilmController extends Controller
     {
         $movie->update(['is_showing' => ! $movie->is_showing]);
 
-        if ($movie->is_showing) {
-            return redirect()->back()->with('sukses', 'Film "' . $movie->title . '" ditayangkan lagi.');
-        }
-
-        return redirect()->back()->with('sukses', 'Film "' . $movie->title . '" diarsipkan. ' . $this->lepasJadwal($movie));
+        return redirect()->back()->with('sukses', $this->pesanStatus($movie));
     }
 
-    // Film yang diarsipkan berhenti dijual. Jadwal mendatangnya yang belum dipesan dihapus supaya
-    // studionya bisa dipakai film lain. Jadwal yang sudah dipesan tetap diputar untuk pemegang tiket.
-    private function lepasJadwal(Movie $movie): string
+    // Keterangan untuk admin setelah film diarsipkan atau ditayangkan lagi. Mengarsipkan hanya
+    // menyembunyikan film dari penonton dan menghentikan penjualan tiketnya. Jadwalnya tidak
+    // dihapus, jadi film yang ditayangkan lagi langsung muncul bersama jadwalnya.
+    private function pesanStatus(Movie $movie): string
     {
-        $mendatang = $movie->showtimes()->where('show_time', '>=', now());
+        $mendatang = $movie->showtimes()->where('show_time', '>=', now())->count();
 
-        $dihapus = (clone $mendatang)
-            ->whereDoesntHave('bookings', fn ($q) => $q->where('status', '!=', Booking::BATAL))
-            ->delete();
+        if ($movie->is_showing) {
+            return 'Film "' . $movie->title . '" ditayangkan lagi.'
+                . ($mendatang ? '' : ' Film ini belum punya jadwal mendatang, jadi belum muncul di halaman penonton. Tambahkan jadwalnya di halaman Jadwal Tayang.');
+        }
 
-        $tetap = $mendatang->count();
-
-        return $dihapus . ' jadwal mendatang yang belum dipesan dihapus.'
-            . ($tetap ? ' ' . $tetap . ' jadwal yang sudah dipesan tetap diputar untuk pemegang tiketnya.' : '');
+        return 'Film "' . $movie->title . '" diarsipkan: tidak tampil di halaman penonton dan tiketnya berhenti dijual.'
+            . ($mendatang ? ' ' . $mendatang . ' jadwal mendatangnya tetap disimpan. Tiket yang sudah terjual tetap berlaku. '
+                . 'Hapus jadwal yang belum dipesan di halaman Jadwal Tayang kalau studionya mau dipakai film lain.' : '');
     }
 
     // Pesan kalau ada jadwal film ini yang bertabrakan dengan jadwal lain di studionya, atau yang
