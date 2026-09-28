@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Movie;
 use App\Models\Showtime;
 use App\Models\Studio;
+use App\Services\MidtransService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -53,7 +54,7 @@ class MovieController extends Controller
         return view('daftar-film', compact('film', 'cari', 'status', 'urut', 'tampilan'));
     }
 
-    public function show(Request $request, string $slug)
+    public function show(Request $request, string $slug, MidtransService $midtrans)
     {
         // 1. Ambil id film dari URL (misal: 'coyote-vs-acme-3' -> kita ambil angka 3), lalu
         // cari filmnya. findOrFail() otomatis menampilkan halaman 404 kalau id itu tidak ada.
@@ -98,6 +99,9 @@ class MovieController extends Controller
         $tanggal ??= in_array($hariIni->format('Y-m-d'), $tanggalAda) || ! $tanggalBerjadwal
             ? $hariIni->copy()
             : Carbon::parse($tanggalBerjadwal[0]);
+
+        // Pesanan yang ditinggal tanpa dibayar dilepas dulu, supaya sisa kursi dan tanda Penuh benar.
+        $midtrans->lepasKedaluwarsa();
 
         // 5. Jadwal tayang dari tabel showtimes pada tanggal itu, dikelompokkan per format layar.
         // Beberapa studio bisa berformat sama; jam dari studio-studio itu digabung dalam satu baris.

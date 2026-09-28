@@ -65,11 +65,13 @@ class MidtransService
         }
     }
 
-    // Melepas kursi dari pesanan di jadwal ini yang sudah melewati batas bayar tanpa dibayar.
-    public function lepasKedaluwarsa(Showtime $showtime): void
+    // Melepas kursi dari pesanan yang sudah melewati batas bayar tanpa dibayar, di satu jadwal atau,
+    // kalau jadwalnya tidak disebut, di semua jadwal. Dipanggil sebelum halaman menghitung kursi terisi,
+    // supaya pesanan yang ditinggal tidak membuat jadwal tampak penuh atau terkunci.
+    public function lepasKedaluwarsa(?Showtime $showtime = null): void
     {
-        $kedaluwarsa = Booking::where('showtime_id', $showtime->id)
-            ->where('status', Booking::MENUNGGU)
+        $kedaluwarsa = Booking::where('status', Booking::MENUNGGU)
+            ->when($showtime, fn ($q) => $q->where('showtime_id', $showtime->id))
             ->where('created_at', '<', now()->subMinutes(Booking::BATAS_BAYAR_MENIT));
 
         // Tanpa Midtrans tidak ada yang bisa ditanyakan, jadi pesanan yang lewat batas langsung dibatalkan.

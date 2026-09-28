@@ -25,9 +25,9 @@
                     {{ $jadwal->show_time->format('d/m/Y') }} &middot; {{ $jadwal->show_time->format('H:i') }}
                 </p>
 
-                @if (session('error'))
+                @if (session('error') || $errors->any())
                     <p role="alert" class="mt-4 rounded-lg border border-nema-accent bg-nema-surface p-4 text-sm">
-                        {{ session('error') }}
+                        {{ session('error') ?? $errors->first() }}
                     </p>
                 @endif
 
@@ -53,7 +53,7 @@
                     @include('partials.batas-usia', ['usia' => $film->usia])
 
                     <label for="uang_diterima" class="mt-5 block text-sm">Uang diterima</label>
-                    <input type="number" id="uang_diterima" name="uang_diterima" min="0" step="1000" required
+                    <input type="number" id="uang_diterima" name="uang_diterima" min="0" max="100000000" step="1" required
                            inputmode="numeric" value="{{ old('uang_diterima') }}" data-uang
                            class="mt-2 block min-h-11 w-full rounded-md border border-nema-line bg-nema-bg px-4 text-lg">
 

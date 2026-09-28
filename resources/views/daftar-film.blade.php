@@ -35,7 +35,7 @@
 
         {{-- Di HP baris status digeser ke samping, bukan turun ke baris kedua. --}}
         <div class="no-scrollbar -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-            @foreach (['semua' => 'Semua', 'tayang' => 'Sedang Tayang', 'segera' => 'Segera Tayang'] as $nilai => $label)
+            @foreach (['semua' => 'Semua', 'tayang' => 'Sedang Tayang', 'segera' => 'Akan Tayang'] as $nilai => $label)
                 <a href="{{ request()->fullUrlWithQuery(['status' => $nilai === 'semua' ? null : $nilai]) }}"
                    @if ($status === $nilai) aria-current="page" @endif
                    class="inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm transition-colors sm:px-4 {{ $status === $nilai ? 'border border-nema-accent bg-nema-maroon text-white' : 'border border-nema-line text-nema-muted hover:bg-nema-surface' }}">

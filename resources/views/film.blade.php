@@ -79,7 +79,7 @@
                                 <span class="rounded-md bg-nema-surface px-3 py-1.5">{{ $film['durasi'] }} menit</span>
                             @endif
                             @if ($film['usia'])
-                                <span class="rounded-md bg-nema-maroon px-3 py-1.5 font-medium text-white">{{ $film['usia'] }}</span>
+                                @include('partials.usia', ['usia' => $film['usia']])
                             @endif
                         </div>
 
@@ -122,7 +122,7 @@
                                     'flex min-h-11 w-20 shrink-0 flex-col items-center justify-center rounded-lg py-2',
                                     'border border-nema-accent bg-nema-maroon text-white' => $aktif,
                                     'border border-nema-line text-nema-muted transition-colors hover:bg-nema-surface' => ! $aktif,
-                                    'opacity-40' => $kosong && ! $aktif,
+                                    'opacity-60' => $kosong && ! $aktif,
                                 ])>
                                 <span class="text-xs">{{ $loop->first ? 'Hari ini' : $namaHari[$t->dayOfWeek] }}</span>
                                 <span class="text-lg font-semibold">{{ $t->format('j') }}</span>

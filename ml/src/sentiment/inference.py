@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 
 import torch
@@ -67,9 +68,6 @@ def get_model_source() -> str:
     return HF_MODEL_ID
 
 
-MODEL_SOURCE = get_model_source()
-
-
 # ============================================================
 # DEVICE
 # ============================================================
@@ -83,16 +81,24 @@ DEVICE = torch.device(
 # LOAD MODEL
 # ============================================================
 
-tokenizer = AutoTokenizer.from_pretrained(
-    MODEL_SOURCE
-)
+@lru_cache(maxsize=1)
+def load_model():
+    """
+    Muat tokenizer dan model saat pertama kali dibutuhkan, bukan saat
+    modul diimpor. Dengan begitu layanan ML (termasuk rekomendasi) tetap
+    menyala walaupun model sentimen belum bisa diunduh, misalnya tanpa
+    internet. Kalau gagal, pemanggilan berikutnya akan mencoba lagi.
+    """
 
-model = AutoModelForSequenceClassification.from_pretrained(
-    MODEL_SOURCE
-)
+    source = get_model_source()
 
-model.to(DEVICE)
-model.eval()
+    tokenizer = AutoTokenizer.from_pretrained(source)
+    model = AutoModelForSequenceClassification.from_pretrained(source)
+
+    model.to(DEVICE)
+    model.eval()
+
+    return tokenizer, model
 
 
 # ============================================================
@@ -109,6 +115,8 @@ def predict_sentiment(text: str) -> dict:
         "confidence": 0.98
     }
     """
+
+    tokenizer, model = load_model()
 
     text = clean_text(text)
 
@@ -161,6 +169,8 @@ def predict_sentiment_detail(text: str) -> dict:
 
     Menampilkan probabilitas seluruh kelas.
     """
+
+    tokenizer, model = load_model()
 
     text = clean_text(text)
 

@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Movie;
 use App\Models\Showtime;
 use App\Models\Studio;
+use App\Services\MidtransService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -16,8 +17,11 @@ class JadwalController extends Controller
 {
     // Jadwal dilihat per hari, dikelompokkan per studio dan diurutkan dari jam paling pagi, seperti
     // papan jadwal di bioskop. Dari sini admin bisa melihat jam kosong di tiap studio.
-    public function index(Request $request)
+    public function index(Request $request, MidtransService $midtrans)
     {
+        // Pesanan online yang ditinggal tanpa dibayar dilepas dulu, supaya kolom Terisi dan kunci jadwal benar.
+        $midtrans->lepasKedaluwarsa();
+
         try {
             $tanggal = Carbon::createFromFormat('!Y-m-d', (string) $request->query('tanggal'));
         } catch (\Throwable) {
@@ -130,30 +134,36 @@ class JadwalController extends Controller
             ->with('gagal', $dilewati ? count($dilewati) . ' jam dilewati: ' . implode('; ', $dilewati) . '.' : null);
     }
 
-    public function edit(Showtime $showtime)
+    public function edit(Showtime $showtime, MidtransService $midtrans)
     {
+        $midtrans->lepasKedaluwarsa($showtime);
+
         if ($showtime->sudahDipesan()) {
             return redirect('/admin/jadwal?tanggal=' . $showtime->show_time->format('Y-m-d'))->with('gagal', $this->terkunci());
         }
 
         return view('admin.jadwal.form', [
             'jadwal' => $showtime,
-            'film' => Movie::where('is_showing', true)->orderBy('title')->get(),
+            // Film jadwal ini tetap ada di pilihan walaupun sudah diarsipkan.
+            'film' => Movie::where('is_showing', true)->orWhere('id', $showtime->movie_id)->orderBy('title')->get(),
             'studio' => Studio::all()->sortBy('name', SORT_NATURAL),
             'tanggalAwal' => $showtime->show_time->format('Y-m-d'),
         ]);
     }
 
-    public function update(Request $request, Showtime $showtime)
+    public function update(Request $request, Showtime $showtime, MidtransService $midtrans)
     {
         // Jadwal yang sudah dipesan tidak boleh dipindah film, studio, atau jamnya. Kursi pesanan
         // menunjuk ke kursi studio ini, dan penonton sudah memegang tiket untuk jam ini.
+        $midtrans->lepasKedaluwarsa($showtime);
+
         if ($showtime->sudahDipesan()) {
             return back()->with('gagal', $this->terkunci());
         }
 
         $data = $request->validate([
-            'movie_id' => ['required', 'integer', Rule::exists('movies', 'id')->where('is_showing', true)],
+            // Boleh film yang sedang tayang, atau film jadwal ini sendiri walaupun sudah diarsipkan.
+            'movie_id' => ['required', 'integer', Rule::exists('movies', 'id')->where(fn ($q) => $q->where('is_showing', true)->orWhere('id', $showtime->movie_id))],
             'studio_id' => ['required', 'integer', 'exists:studios,id'],
             'show_time' => ['required', 'date_format:Y-m-d\TH:i', 'after:now', 'before_or_equal:' . Showtime::tanggalTerakhir()->endOfDay()->format('Y-m-d\TH:i')],
         ], $this->pesan(), [
@@ -169,17 +179,27 @@ class JadwalController extends Controller
             return back()->withInput()->with('gagal', $this->tanpaDurasi($film));
         }
 
-        $masalah = DB::transaction(function () use ($data, $film, $waktu, $showtime) {
-            Studio::whereKey($data['studio_id'])->lockForUpdate()->first();
+        try {
+            $masalah = DB::transaction(function () use ($data, $film, $waktu, $showtime) {
+                Showtime::whereKey($showtime->id)->lockForUpdate()->first();
+                Studio::whereKey($data['studio_id'])->lockForUpdate()->first();
 
-            if ($masalah = $this->masalah($data['studio_id'], $film, $waktu, $showtime->id)) {
-                return $masalah;
-            }
+                // Diperiksa lagi di dalam kunci, karena bisa saja ada tiket terjual sejak halaman ini dibuka.
+                if ($showtime->sudahDipesan()) {
+                    throw new \DomainException($this->terkunci());
+                }
 
-            $showtime->update(['movie_id' => $film->id, 'studio_id' => $data['studio_id'], 'show_time' => $waktu]);
+                if ($masalah = $this->masalah($data['studio_id'], $film, $waktu, $showtime->id)) {
+                    return $masalah;
+                }
 
-            return null;
-        });
+                $showtime->update(['movie_id' => $film->id, 'studio_id' => $data['studio_id'], 'show_time' => $waktu]);
+
+                return null;
+            });
+        } catch (\DomainException $e) {
+            return back()->with('gagal', $e->getMessage());
+        }
 
         if ($masalah) {
             return back()->withInput()->with('gagal', 'Jadwal tidak disimpan: jam ' . $waktu->format('H:i') . ' ' . $masalah . '.');
@@ -188,19 +208,27 @@ class JadwalController extends Controller
         return redirect('/admin/jadwal?tanggal=' . $waktu->format('Y-m-d'))->with('sukses', 'Jadwal disimpan.');
     }
 
-    public function destroy(Showtime $showtime)
+    public function destroy(Showtime $showtime, MidtransService $midtrans)
     {
         $kembali = '/admin/jadwal?tanggal=' . $showtime->show_time->format('Y-m-d');
+        $midtrans->lepasKedaluwarsa($showtime);
 
-        // Menghapus jadwal ikut menghapus pesanannya (cascadeOnDelete), jadi jadwal
-        // yang sudah dipesan dibiarkan. Tiket penonton harus tetap ada.
-        if ($showtime->sudahDipesan()) {
-            return redirect($kembali)->with('gagal', $this->terkunci());
-        }
+        // Menghapus jadwal ikut menghapus pesanannya (cascadeOnDelete), jadi jadwal yang sudah dipesan
+        // dibiarkan. Tiket penonton harus tetap ada. Jadwalnya dikunci selama diperiksa dan dihapus,
+        // supaya tidak ada tiket yang terjual di antara keduanya.
+        $dihapus = DB::transaction(function () use ($showtime) {
+            Showtime::whereKey($showtime->id)->lockForUpdate()->first();
 
-        $showtime->delete();
+            if ($showtime->sudahDipesan()) {
+                return false;
+            }
 
-        return redirect($kembali)->with('sukses', 'Jadwal dihapus.');
+            return $showtime->delete();
+        });
+
+        return $dihapus
+            ? redirect($kembali)->with('sukses', 'Jadwal dihapus.')
+            : redirect($kembali)->with('gagal', $this->terkunci());
     }
 
     // Alasan satu jam tayang tidak bisa dipakai, atau null kalau boleh. Aturannya sama untuk

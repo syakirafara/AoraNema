@@ -55,14 +55,17 @@
                         </p>
                         <p class="mt-3 max-w-xs text-nema-muted">
                             masukan bernada negatif, {{ $negatif }} dari {{ $total }} yang masuk.
-                            @if ($paling)
-                                Paling banyak di <span class="text-nema-text">{{ mb_strtolower($namaKategori[$paling] ?? $paling) }}</span>.
+                            {{-- Bagian dengan porsi keluhan terbesar, hanya kalau memang ada keluhan. --}}
+                            @if ($paling && $negatif)
+                                Porsi keluhan terbesar di <span class="text-nema-text">{{ mb_strtolower($namaKategori[$paling] ?? $paling) }}</span>.
                             @endif
                         </p>
                     </div>
 
                     <dl class="flex gap-10 text-sm">
-                        @foreach (['neutral', 'positive'] as $kunci)
+                        {{-- Masukan yang nadanya belum dianalisis ikut ditulis, supaya jumlahnya genap 100%. --}}
+                        @foreach (['neutral', 'positive', 'unknown'] as $kunci)
+                            @continue($kunci === 'unknown' && ! ($summary['unknown'] ?? 0))
                             <div>
                                 <dt class="text-nema-muted">{{ $namaSentimen[$kunci] }}</dt>
                                 <dd class="mt-1 text-2xl font-semibold">
@@ -137,7 +140,7 @@
                 {{-- Saringan nada. Saringan bagian layanan dipilih lewat tabel di atas. --}}
                 <div class="no-scrollbar relative -mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                     @php
-                        $pilihanNada = collect(['' => 'Semua nada', 'negative' => 'Negatif', 'neutral' => 'Netral', 'positive' => 'Positif'])
+                        $pilihanNada = collect(['' => 'Semua nada', 'negative' => 'Negatif', 'neutral' => 'Netral', 'positive' => 'Positif', 'unknown' => 'Belum dianalisis'])
                             ->filter(fn ($label, $kunci) => $kunci === '' || ($summary[$kunci] ?? 0));
                     @endphp
 

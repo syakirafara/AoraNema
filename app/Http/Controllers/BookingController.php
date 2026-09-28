@@ -62,6 +62,7 @@ class BookingController extends Controller
     private function kursiTerisi(Showtime $jadwal, int $userId): array
     {
         $this->midtrans->lepasKedaluwarsa($jadwal);
+        $this->perbaruiPesananSendiri($jadwal, $userId);
 
         $milikSendiri = Booking::where('showtime_id', $jadwal->id)
             ->where('user_id', $userId)
@@ -71,6 +72,18 @@ class BookingController extends Controller
             ->all();
 
         return array_values(array_diff($jadwal->kursiTerisi(), $milikSendiri));
+    }
+
+    // Pesanan penonton ini di jadwal ini yang masih menunggu pembayaran ditanyakan dulu ke Midtrans.
+    // Bisa saja ia sudah membayar lalu menekan Kembali di browser; pesanan itu harus tercatat lunas,
+    // bukan ikut dibatalkan saat ia menekan Bayar lagi.
+    private function perbaruiPesananSendiri(Showtime $jadwal, int $userId): void
+    {
+        Booking::where('showtime_id', $jadwal->id)
+            ->where('user_id', $userId)
+            ->where('status', Booking::MENUNGGU)
+            ->pluck('booking_code')
+            ->each(fn ($kode) => $this->midtrans->cekStatus($kode));
     }
 
     // Pesanan lunas penonton ini di jadwal yang sama yang memuat salah satu kursi itu, atau null.
@@ -178,6 +191,7 @@ class BookingController extends Controller
         } while (Booking::where('booking_code', $bookingCode)->exists());
 
         $userId = $request->user()->id;
+        $this->perbaruiPesananSendiri($showtime, $userId);
 
         // Pemeriksaan kursi dan penyimpanan pesanan dijalankan dalam satu transaksi yang mengunci
         // jadwal ini. Dua penonton yang memilih kursi sama pada saat bersamaan, atau satu penonton
@@ -276,25 +290,26 @@ class BookingController extends Controller
         // Tanpa kunci server, tanda tangan tidak bisa diperiksa, jadi pemberitahuan ditolak.
         abort_unless($this->midtrans->siap(), 404);
 
-        $isi = $request->all();
-        $kode = (string) ($isi['order_id'] ?? '');
+        // Isian yang bukan teks atau angka dianggap kosong, supaya kiriman aneh tidak membuat galat.
+        $isi = fn (string $kunci) => is_scalar($request->input($kunci)) ? (string) $request->input($kunci) : '';
+        $kode = $isi('order_id');
 
         // Tanda tangan dicek supaya tidak ada yang bisa memalsukan pemberitahuan "sudah dibayar".
-        $tandaTangan = hash('sha512', $kode . ($isi['status_code'] ?? '') . ($isi['gross_amount'] ?? '') . Config::$serverKey);
-        abort_unless(hash_equals($tandaTangan, (string) ($isi['signature_key'] ?? '')), 403);
+        $tandaTangan = hash('sha512', $kode . $isi('status_code') . $isi('gross_amount') . Config::$serverKey);
+        abort_unless(hash_equals($tandaTangan, $isi('signature_key')), 403);
 
         $pesanan = Booking::where('booking_code', $kode)->first();
 
         if ($pesanan?->status === Booking::MENUNGGU) {
             // Status transaksi tidak ikut ditandatangani, jadi statusnya ditanyakan langsung ke Midtrans.
             $this->midtrans->cekStatus($kode);
-        } elseif ($pesanan?->status !== Booking::LUNAS && in_array($isi['transaction_status'] ?? '', ['settlement', 'capture'])) {
+        } elseif ($pesanan?->status !== Booking::LUNAS && in_array($isi('transaction_status'), ['settlement', 'capture'])) {
             // Uang masuk untuk pesanan yang sudah batal atau tidak ada. Dicatat di log supaya
             // pengelola bisa mengembalikan dananya.
             Log::warning('Pembayaran masuk untuk pesanan yang tidak sedang menunggu pembayaran', [
                 'order_id' => $kode,
                 'status_pesanan' => $pesanan?->status,
-                'gross_amount' => $isi['gross_amount'] ?? null,
+                'gross_amount' => $isi('gross_amount'),
             ]);
         }
 

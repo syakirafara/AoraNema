@@ -51,7 +51,7 @@ return [
         'url' => env('ML_API_URL', 'http://127.0.0.1:8001'),
 
         // Batas waktu (detik) menunggu rekomendasi. Dipakai di beranda, jadi dibuat singkat.
-        'timeout' => env('ML_TIMEOUT', 10),
+        'timeout' => env('ML_TIMEOUT', 5),
 
         // Batas waktu (detik) analisis sentimen. Boleh lebih lama karena hanya
         // dipanggil saat penonton mengirim form masukan.

@@ -27,6 +27,6 @@ class AppServiceProvider extends ServiceProvider
         // kata sandi tidak bisa ditebak terus-menerus. Dihitung per email, jadi satu kelas yang
         // memakai jaringan kampus yang sama tidak saling menghabiskan jatah.
         RateLimiter::for('masuk', fn (Request $request) => Limit::perMinute(5)
-            ->by(Str::lower((string) $request->input('email')) . '|' . $request->ip()));
+            ->by(Str::lower(is_string($request->input('email')) ? $request->input('email') : '') . '|' . $request->ip()));
     }
 }

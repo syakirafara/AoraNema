@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Studio;
+use App\Services\MidtransService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -46,8 +47,11 @@ class StudioController extends Controller
         );
     }
 
-    public function edit(Studio $studio)
+    public function edit(Studio $studio, MidtransService $midtrans)
     {
+        // Pesanan online yang ditinggal tanpa dibayar tidak boleh ikut mengunci studio.
+        $midtrans->lepasKedaluwarsa();
+
         return view('admin.studio.form', [
             'studio' => $studio,
             'baris' => $studio->baris,
@@ -56,8 +60,10 @@ class StudioController extends Controller
         ]);
     }
 
-    public function update(Request $request, Studio $studio)
+    public function update(Request $request, Studio $studio, MidtransService $midtrans)
     {
+        $midtrans->lepasKedaluwarsa();
+
         $terkunci = $this->terkunci($studio);
         $data = $this->aturan($request, $terkunci, $studio);
 

@@ -27,8 +27,8 @@ class AoranemaMlService
             '/'
         );
 
-        // Rekomendasi dipanggil setiap kali beranda dibuka, jadi batas waktunya singkat (10 detik).
-        $this->timeout = (int) config('services.ml.timeout', 10);
+        // Rekomendasi dipanggil setiap kali beranda dibuka, jadi batas waktunya singkat (5 detik).
+        $this->timeout = (int) config('services.ml.timeout', 5);
 
         // Sentimen hanya dipanggil saat form masukan dikirim, jadi boleh lebih lama.
         $this->sentimentTimeout = (int) config('services.ml.sentiment_timeout', 30);
@@ -96,13 +96,19 @@ class AoranemaMlService
             return $hasilCache;
         }
 
+        // Layanan ML baru saja gagal dihubungi. Selama semenit tidak dicoba lagi untuk siapa pun,
+        // supaya beranda semua penonton tidak ikut menunggu layanan yang mati.
+        if (Cache::has('ml:mati')) {
+            return [];
+        }
+
         // 5. Kirim Request
         $movieIds = $this->requestRecommendations($payload, $user->id);
 
         if ($movieIds === null) {
-            // Gagal: simpan hasil kosong selama 1 menit, supaya layanan ML yang mati
-            // tidak memperlambat setiap kunjungan ke beranda.
+            // Gagal: simpan hasil kosong selama 1 menit, dan tandai layanannya sedang mati.
             Cache::put($cacheKey, [], now()->addMinute());
+            Cache::put('ml:mati', true, now()->addMinute());
 
             return [];
         }

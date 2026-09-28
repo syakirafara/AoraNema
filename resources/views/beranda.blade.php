@@ -58,6 +58,9 @@
 
     <section>
 
+        {{-- Satu judul halaman untuk pembaca layar. Judul film di tiap slide memakai h2. --}}
+        <h1 class="sr-only">AoraNema, pesan tiket bioskop</h1>
+
         <div id="hero" tabindex="0" class="no-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth">
             @foreach ($unggulan as $f)
                 <article class="w-full shrink-0 snap-start">
@@ -67,7 +70,7 @@
                         <div>
                             <p class="text-sm text-nema-accent">Sedang tayang</p>
 
-                            <h1 class="mt-3 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"><a href="{{ url('/film/' . $f['slug']) }}" class="transition-colors hover:text-nema-accent">{{ $f['judul'] }}</a></h1>
+                            <h2 class="mt-3 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"><a href="{{ url('/film/' . $f['slug']) }}" class="transition-colors hover:text-nema-accent">{{ $f['judul'] }}</a></h2>
 
                             @if ($f['tagline'])
 
@@ -140,8 +143,7 @@
                 <div class="border-t border-nema-line/40 pt-6">
                     <h2 class="text-2xl sm:text-3xl">Dipilih Pengelola</h2>
                     <p class="mt-2 max-w-prose text-sm text-nema-muted">
-                        {{ count($kurasi) }} film yang ditandai pengelola bioskop sebagai pilihannya. Ini keputusan
-                        orang, bukan hasil hitungan.
+                        {{ count($kurasi) }} film pilihan pengelola AoraNema.
                     </p>
                 </div>
 
@@ -208,7 +210,7 @@
                                 </div>
 
                                 <div class="min-w-0">
-                                    <h3 class="text-lg leading-tight"><a href="{{ url('/film/' . $f['slug']) }}" class="after:absolute after:inset-0 focus-visible:outline-none">{{ $f['judul'] }}</a></h3>
+                                    <h3 class="text-lg leading-tight"><a href="{{ url('/film/' . $f['slug']) }}" class="after:absolute after:inset-0">{{ $f['judul'] }}</a></h3>
                                     <p class="mt-1 text-xs text-nema-muted">{{ $keterangan($f) }}</p>
                                     @if ($f['tagline'])
                                         <p class="mt-2 text-sm text-nema-muted">{{ $f['tagline'] }}</p>
@@ -231,8 +233,7 @@
                 <div class="border-t border-nema-line/40 pt-6">
                     <h2 class="text-2xl sm:text-3xl">Baru Rilis</h2>
                     <p class="mt-2 max-w-prose text-sm text-nema-muted">
-                        Urut dari tanggal tayang perdana yang paling baru. Tanggalnya ditulis di tiap baris, jadi urutannya
-                        bisa dicek sendiri.
+                        Film yang paling baru mulai tayang.
                     </p>
                 </div>
 
@@ -242,7 +243,7 @@
 
                             <div class="min-w-0 flex-1">
                                 <p class="text-xs text-nema-muted">{{ $tanggalIndo($f['rilis']) }}</p>
-                                <h3 class="mt-1 text-lg leading-tight sm:text-xl"><a href="{{ url('/film/' . $f['slug']) }}" class="after:absolute after:inset-0 focus-visible:outline-none">{{ $f['judul'] }}</a></h3>
+                                <h3 class="mt-1 text-lg leading-tight sm:text-xl"><a href="{{ url('/film/' . $f['slug']) }}" class="after:absolute after:inset-0">{{ $f['judul'] }}</a></h3>
                                 <p class="mt-1 text-xs text-nema-muted sm:text-sm">{{ $keterangan($f) }}</p>
                             </div>
 
@@ -269,7 +270,7 @@
             <div class="border-t border-nema-line/40 pt-6">
                 <h2 class="text-2xl sm:text-3xl">Semua Film</h2>
                 <p class="mt-2 max-w-prose text-sm text-nema-muted">
-                    Daftar lengkap {{ count($film) }} film yang sedang tayang di AoraNema, tanpa urutan khusus.
+                    {{ count($film) }} film yang sedang tayang di AoraNema.
                 </p>
             </div>
 
@@ -309,7 +310,7 @@
                     </div>
 
                     <div class="min-w-0">
-                        <h3 class="text-lg leading-tight sm:text-xl"><a href="{{ url('/film/' . $f['slug']) }}" class="after:absolute after:inset-0 focus-visible:outline-none">{{ $f['judul'] }}</a></h3>
+                        <h3 class="text-lg leading-tight sm:text-xl"><a href="{{ url('/film/' . $f['slug']) }}" class="after:absolute after:inset-0">{{ $f['judul'] }}</a></h3>
 
                         <p class="mt-2 text-sm text-nema-muted">
                             {{ $keterangan($f) }}

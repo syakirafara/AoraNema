@@ -9,7 +9,10 @@ use App\Models\Studio;
 use App\Models\User;
 use Database\Seeders\CinemaSeeder;
 use Database\Seeders\JadwalSeeder;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Tests\TestCase;
 
 // Aturan jadwal tayang: satu studio tidak boleh memutar dua film yang waktunya bertabrakan,
@@ -239,5 +242,18 @@ class JadwalTest extends TestCase
                 $sebelumnya = $j;
             }
         }
+    }
+
+    public function test_seeding_tetap_membuat_akun_dan_studio_walaupun_tmdb_tidak_bisa_dihubungi(): void
+    {
+        config(['services.tmdb.key' => 'kunci-uji']);
+        Http::fake(['*' => Http::failedConnection()]);
+        Sleep::fake();
+
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame(3, User::whereIn('email', ['admin@aoranema.com', 'kasir@aoranema.com', 'user@aoranema.com'])->count());
+        $this->assertSame(8, Studio::count());
+        $this->assertSame(0, Movie::count());
     }
 }

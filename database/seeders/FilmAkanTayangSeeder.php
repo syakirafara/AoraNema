@@ -4,10 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\Movie;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Http;
 
 // Menambah film yang akan tayang dari daftar "Upcoming" TMDB, supaya bagian Akan Tayang di
-// beranda dan saringan Segera Tayang di /film ada isinya. MovieSeeder hanya mengambil film yang
+// beranda dan saringan Akan Tayang di /film ada isinya. MovieSeeder hanya mengambil film yang
 // sedang tayang, jadi tanggal rilisnya sudah lewat semua.
 // Dipanggil DatabaseSeeder, dan bisa dijalankan sendiri: php artisan db:seed --class=FilmAkanTayangSeeder
 // Film yang sudah ada di database tidak diubah, supaya isian admin seperti sinopsis tidak tertimpa.
@@ -17,9 +16,7 @@ class FilmAkanTayangSeeder extends Seeder
 
     public function run(): void
     {
-        $kunci = config('services.tmdb.key');
-
-        if (! $kunci) {
+        if (! config('services.tmdb.key')) {
             $this->command->error('GAGAL: TMDB_API_KEY belum dipasang di .env');
 
             return;
@@ -30,17 +27,15 @@ class FilmAkanTayangSeeder extends Seeder
         // Beberapa halaman diambil karena daftar Upcoming TMDB kadang berisi film yang tanggal
         // rilis Indonesianya sudah lewat. Yang disimpan hanya yang benar-benar belum rilis.
         for ($halaman = 1; $halaman <= 3 && $daftar->count() < self::JUMLAH; $halaman++) {
-            $respons = Http::timeout(30)->get('https://api.themoviedb.org/3/movie/upcoming', [
-                'api_key' => $kunci, 'language' => 'id-ID', 'region' => 'ID', 'page' => $halaman,
-            ]);
+            $respons = Tmdb::ambil('movie/upcoming', ['language' => 'id-ID', 'region' => 'ID', 'page' => $halaman]);
 
-            if ($respons->failed()) {
-                $this->command->error('GAGAL: tidak dapat terhubung ke TMDB.');
+            if (! $respons) {
+                $this->command->error('GAGAL: daftar film akan tayang tidak bisa diambil dari TMDB. Jalankan lagi nanti: php artisan db:seed --class=FilmAkanTayangSeeder');
 
                 return;
             }
 
-            $daftar = $daftar->concat(collect($respons->json('results'))
+            $daftar = $daftar->concat(collect($respons['results'] ?? [])
                 ->filter(fn ($f) => ($f['release_date'] ?? '') > today()->format('Y-m-d') && $f['poster_path']));
         }
 
@@ -51,7 +46,13 @@ class FilmAkanTayangSeeder extends Seeder
                 continue;
             }
 
-            $detail = Http::timeout(30)->get("https://api.themoviedb.org/3/movie/{$f['id']}", ['api_key' => $kunci, 'language' => 'id-ID'])->json();
+            $detail = Tmdb::ambil("movie/{$f['id']}", ['language' => 'id-ID']);
+
+            if (! $detail) {
+                $this->command->warn("Dilewati, detailnya gagal diambil: {$f['title']}");
+
+                continue;
+            }
 
             $judul = $f['title'];
             $sinopsis = $f['overview'];
@@ -60,7 +61,7 @@ class FilmAkanTayangSeeder extends Seeder
             // judulnya masih memakai huruf aslinya, misalnya huruf Thailand. Untuk film seperti itu
             // dipakai versi bahasa Inggrisnya.
             if (! $sinopsis || ! preg_match('/\p{Latin}/u', $judul)) {
-                $inggris = Http::timeout(30)->get("https://api.themoviedb.org/3/movie/{$f['id']}", ['api_key' => $kunci, 'language' => 'en-US'])->json();
+                $inggris = Tmdb::ambil("movie/{$f['id']}", ['language' => 'en-US']) ?? [];
                 $sinopsis = $sinopsis ?: ($inggris['overview'] ?? null);
                 $judul = preg_match('/\p{Latin}/u', $judul) ? $judul : ($inggris['title'] ?? $judul);
             }
@@ -70,6 +71,8 @@ class FilmAkanTayangSeeder extends Seeder
                 'title' => $judul,
                 'synopsis' => $sinopsis ?: null,
                 'poster_url' => "https://image.tmdb.org/t/p/w500{$f['poster_path']}",
+                // Film yang belum rilis sering belum punya durasi di TMDB. Durasinya dilengkapi
+                // LengkapiFilmSeeder begitu tersedia, atau diisi admin sebelum dijadwalkan.
                 'duration_minutes' => ($detail['runtime'] ?? 0) ?: null,
                 'release_date' => $f['release_date'],
                 'is_showing' => true,

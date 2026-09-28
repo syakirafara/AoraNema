@@ -124,8 +124,11 @@ class FilmController extends Controller
         $mendatang = $movie->showtimes()->where('show_time', '>=', now())->count();
 
         if ($movie->is_showing) {
-            return 'Film "' . $movie->title . '" ditayangkan lagi.'
-                . ($mendatang ? '' : ' Film ini belum punya jadwal mendatang, jadi belum muncul di halaman penonton. Tambahkan jadwalnya di halaman Jadwal Tayang.');
+            return 'Film "' . $movie->title . '" ditayangkan lagi.' . match (true) {
+                $mendatang > 0 => '',
+                $movie->akanTayang() => ' Film ini tampil di bagian Akan Tayang. Jadwalnya bisa ditambahkan mulai tanggal rilisnya.',
+                default => ' Film ini belum punya jadwal mendatang, jadi belum muncul di halaman penonton. Tambahkan jadwalnya di halaman Jadwal Tayang.',
+            };
         }
 
         return 'Film "' . $movie->title . '" diarsipkan: tidak tampil di halaman penonton dan tiketnya berhenti dijual.'

@@ -132,6 +132,11 @@
                         if (label) label.setAttribute('for', id);
                         isian.id = id;
                     });
+
+                    // Keterangan batas panjang juga dinomori ulang, supaya tidak ada id kembar.
+                    const batas = kotak.querySelector('[id^="batas-"]');
+                    if (batas) batas.id = 'batas-' + i;
+                    kotak.querySelector('textarea').setAttribute('aria-describedby', 'batas-' + i);
                 });
 
                 tambah.hidden = semua.length >= MAKS;

@@ -18,13 +18,16 @@ class KasirController extends Controller
 {
     // Jadwal yang masih dijual pada tanggal yang dipilih, dikelompokkan per film, ditambah ringkasan
     // penjualan loket kasir ini hari ini.
-    public function index(Request $request)
+    public function index(Request $request, MidtransService $midtrans)
     {
         $daftarTanggal = collect(range(0, Showtime::HARI_DIJUAL - 1))->map(fn ($i) => today()->addDays($i));
         $tanggal = $daftarTanggal->first(fn ($t) => $t->format('Y-m-d') === $request->query('tanggal')) ?? today();
 
         // Hanya jam yang belum mulai, karena penjualan ditutup saat jam tayang tiba.
         $rentang = [$tanggal->copy()->max(now()), $tanggal->copy()->endOfDay()];
+
+        // Pesanan online yang ditinggal tanpa dibayar dilepas dulu, supaya sisa kursinya benar.
+        $midtrans->lepasKedaluwarsa();
 
         $film = Movie::where('is_showing', true)
             ->whereHas('showtimes', fn ($q) => $q->whereBetween('show_time', $rentang))
@@ -87,7 +90,7 @@ class KasirController extends Controller
 
         $kursi = array_values(array_unique(array_filter(explode(',', $data['kursi']))));
 
-        if (count($kursi) > Booking::MAKS_KURSI_LOKET || array_diff($kursi, $showtime->studio->daftarKursi())) {
+        if (count($kursi) < 1 || count($kursi) > Booking::MAKS_KURSI_LOKET || array_diff($kursi, $showtime->studio->daftarKursi())) {
             return back()->withInput()->with('error', 'Pilihan kursi tidak valid. Paling banyak ' . Booking::MAKS_KURSI_LOKET . ' kursi sekali transaksi.');
         }
 

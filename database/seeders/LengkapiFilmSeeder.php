@@ -4,13 +4,13 @@ namespace Database\Seeders;
 
 use App\Models\Movie;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Http;
 
-// Melengkapi batas usia film yang masih kosong. Urutannya:
-// 1. rating Indonesia (LSF) dari TMDB, yang sudah berbentuk SU, 13+, 17+, atau 21+,
-// 2. kalau tidak ada, rating Amerika yang disetarakan,
-// 3. kalau tidak ada juga, perkiraan dari genre.
-// Batas usia yang sudah diisi admin tidak ditimpa, dan admin tetap bisa mengubahnya di halaman Film.
+// Melengkapi data film yang masih kosong dari TMDB:
+// - Durasi, untuk film yang waktu ditambahkan belum punya durasi di TMDB (biasanya film akan tayang).
+// - Batas usia. Urutannya: rating Indonesia (LSF) di TMDB, yang sudah berbentuk SU, 13+, 17+, atau 21+,
+//   lalu rating Amerika yang disetarakan, lalu perkiraan dari genre.
+// Isian yang sudah ada, termasuk yang diisi admin, tidak ditimpa. Film yang datanya gagal diambil
+// dilewati, dan akan dicoba lagi saat seeder ini dijalankan berikutnya.
 // Dipanggil DatabaseSeeder setelah data film diambil, dan bisa dijalankan sendiri:
 // php artisan db:seed --class=LengkapiFilmSeeder
 class LengkapiFilmSeeder extends Seeder
@@ -22,30 +22,55 @@ class LengkapiFilmSeeder extends Seeder
 
     public function run(): void
     {
-        $kunci = config('services.tmdb.key');
-
-        if (! $kunci) {
+        if (! config('services.tmdb.key')) {
             $this->command->error('GAGAL: TMDB_API_KEY belum dipasang di .env');
 
             return;
         }
 
-        foreach (Movie::with('genres')->whereNull('usia')->get() as $film) {
-            // Rating tiap negara, misalnya ['ID' => ['17+'], 'US' => ['R']].
-            $rating = collect($film->tmdb_id
-                ? Http::timeout(30)->get("https://api.themoviedb.org/3/movie/{$film->tmdb_id}/release_dates", ['api_key' => $kunci])->json('results') ?? []
-                : [])
-                ->mapWithKeys(fn ($negara) => [$negara['iso_3166_1'] => collect($negara['release_dates'])->pluck('certification')->filter()]);
+        $film = Movie::with('genres')
+            ->whereNotNull('tmdb_id')
+            ->where(fn ($q) => $q->whereNull('usia')->orWhereNull('duration_minutes'))
+            ->get();
 
-            $indonesia = $rating->get('ID', collect())->first(fn ($r) => in_array($r, self::USIA));
-            $amerika = $rating->get('US', collect())->map(fn ($r) => self::RATING_AMERIKA[$r] ?? null)->filter()->first();
+        foreach ($film as $f) {
+            $isi = [];
 
-            $usia = $indonesia ?? $amerika ?? $this->perkiraanDariGenre($film);
-            $film->update(['usia' => $usia]);
+            if (! $f->duration_minutes) {
+                $runtime = Tmdb::ambil("movie/{$f->tmdb_id}")['runtime'] ?? 0;
 
-            $sumber = $indonesia ? 'LSF' : ($amerika ? 'dari rating Amerika' : 'perkiraan dari genre');
-            $this->command->info("{$film->title}: {$usia} ({$sumber})");
+                if ($runtime > 0) {
+                    $isi['duration_minutes'] = $runtime;
+                }
+            }
+
+            if (! $f->usia) {
+                $hasil = Tmdb::ambil("movie/{$f->tmdb_id}/release_dates");
+
+                if ($hasil === null) {
+                    $this->command->warn("Dilewati, rating usianya gagal diambil: {$f->title}");
+                } else {
+                    $isi['usia'] = $this->batasUsia($f, $hasil['results'] ?? []);
+                }
+            }
+
+            if ($isi) {
+                $f->update($isi);
+                $this->command->info($f->title . ': ' . collect($isi)->map(fn ($v, $k) => $k === 'usia' ? $v : $v . ' menit')->implode(', '));
+            }
         }
+    }
+
+    // Batas usia dari daftar rating per negara, misalnya ['ID' => ['17+'], 'US' => ['R']].
+    private function batasUsia(Movie $film, array $perNegara): string
+    {
+        $rating = collect($perNegara)
+            ->mapWithKeys(fn ($negara) => [$negara['iso_3166_1'] => collect($negara['release_dates'])->pluck('certification')->filter()]);
+
+        $indonesia = $rating->get('ID', collect())->first(fn ($r) => in_array($r, self::USIA));
+        $amerika = $rating->get('US', collect())->map(fn ($r) => self::RATING_AMERIKA[$r] ?? null)->filter()->first();
+
+        return $indonesia ?? $amerika ?? $this->perkiraanDariGenre($film);
     }
 
     // Perkiraan kasar, hanya dipakai kalau TMDB tidak punya rating sama sekali.

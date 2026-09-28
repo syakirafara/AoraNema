@@ -47,6 +47,14 @@ def analyze_sentiment(
             detail=str(error),
         ) from error
 
+    except OSError as error:
+        # Model belum bisa dimuat, misalnya belum terunduh dan tidak ada internet.
+        # Laravel tetap menyimpan masukannya dengan nada 'unknown'.
+        raise HTTPException(
+            status_code=503,
+            detail="Model sentiment belum tersedia.",
+        ) from error
+
     except Exception as error:
         raise HTTPException(
             status_code=500,

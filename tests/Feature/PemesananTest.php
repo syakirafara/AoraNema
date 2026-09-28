@@ -7,6 +7,7 @@ use App\Models\Movie;
 use App\Models\Showtime;
 use App\Models\Studio;
 use App\Models\User;
+use App\Services\MidtransService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -155,5 +156,61 @@ class PemesananTest extends TestCase
 
         $this->get('/')->assertOk()->assertSee('Film Uji')->assertDontSee('Film Tanpa Jadwal');
         $this->get('/film?status=tayang')->assertOk()->assertSee('Film Uji')->assertDontSee('Film Tanpa Jadwal');
+    }
+
+    public function test_pesanan_yang_ternyata_sudah_dibayar_tidak_ikut_dibatalkan(): void
+    {
+        $penonton = $this->penonton();
+
+        Booking::create([
+            'booking_code' => 'LAMA01', 'user_id' => $penonton->id, 'showtime_id' => $this->jadwal->id,
+            'kursi' => ['A1'], 'total_price' => 43000, 'status' => Booking::MENUNGGU, 'payment_method' => 'qris',
+        ]);
+
+        // Penonton sudah membayar di Midtrans lalu menekan Kembali. Midtrans menjawab pesanannya lunas.
+        $this->mock(MidtransService::class, function ($mock) {
+            $mock->shouldReceive('lepasKedaluwarsa');
+            $mock->shouldReceive('cekStatus')->andReturnUsing(
+                fn ($kode) => Booking::where('booking_code', $kode)->update(['status' => Booking::LUNAS])
+            );
+        });
+
+        $this->actingAs($penonton)
+            ->get('/bayar/film-uji-' . $this->jadwal->movie_id . '?jadwal=' . $this->jadwal->id . '&kursi=A1')
+            ->assertRedirect('/tiket/LAMA01');
+
+        $this->assertSame(Booking::LUNAS, Booking::first()->status);
+    }
+
+    public function test_pesanan_yang_ditinggal_tanpa_dibayar_dilepas_saat_halaman_film_dibuka(): void
+    {
+        Booking::create([
+            'booking_code' => 'TINGGAL', 'user_id' => $this->penonton()->id, 'showtime_id' => $this->jadwal->id,
+            'kursi' => ['A1', 'A2', 'A3', 'B1', 'B2', 'B3'], 'total_price' => 258000, 'status' => Booking::MENUNGGU,
+        ]);
+
+        // Lewat dari batas bayar 15 menit.
+        $this->travel(20)->minutes();
+
+        $this->get('/film/film-uji-' . $this->jadwal->movie_id)->assertOk()->assertDontSee('Penuh');
+        $this->assertSame(Booking::BATAL, Booking::first()->status);
+    }
+
+    public function test_pemberitahuan_midtrans_yang_aneh_tidak_membuat_galat(): void
+    {
+        config(['services.midtrans.server_key' => 'kunci-uji']);
+
+        $this->post('/midtrans/notifikasi', ['order_id' => ['x'], 'status_code' => ['200'], 'signature_key' => 'palsu'])
+            ->assertForbidden();
+    }
+
+    public function test_admin_masuk_dari_halaman_penonton_tetap_diarahkan_ke_panel_admin(): void
+    {
+        User::factory()->create(['role' => 'admin', 'email' => 'admin@contoh.test', 'password' => 'rahasia123']);
+
+        // Tamu membuka halaman kursi, lalu diminta masuk.
+        $this->get('/kursi/film-uji-' . $this->jadwal->movie_id . '?jadwal=' . $this->jadwal->id)->assertRedirect('/masuk');
+
+        $this->post('/masuk', ['email' => 'admin@contoh.test', 'password' => 'rahasia123'])->assertRedirect('/admin');
     }
 }

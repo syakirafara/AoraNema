@@ -49,7 +49,9 @@ class JadwalSeeder extends Seeder
 
         // Jadwal mendatang yang belum dipesan siapa pun dibuat ulang. Yang sudah dipesan dibiarkan,
         // supaya tiket penonton tetap sah; jadwal baru akan menghindarinya.
+        // Jadwal film yang diarsipkan juga dibiarkan, supaya kembali utuh kalau filmnya ditayangkan lagi.
         $dihapus = Showtime::where('show_time', '>=', now())
+            ->whereHas('movie', fn ($q) => $q->where('is_showing', true))
             ->whereDoesntHave('bookings', fn ($q) => $q->where('status', '!=', Booking::BATAL))
             ->delete();
 
@@ -83,7 +85,12 @@ class JadwalSeeder extends Seeder
                         continue;
                     }
 
-                    foreach (self::POLA_FORMAT[$urut % count(self::POLA_FORMAT)] as $format) {
+                    // Format yang tidak punya studio diganti Regular 2D, supaya film itu tetap kebagian jadwal.
+                    $polaFilm = collect(self::POLA_FORMAT[$urut % count(self::POLA_FORMAT)])
+                        ->map(fn ($format) => $perFormat->has($format) ? $format : 'Regular 2D')
+                        ->unique();
+
+                    foreach ($polaFilm as $format) {
                         // Studio berformat itu yang paling cepat kosong.
                         $dipakai = $perFormat->get($format, collect())
                             ->sortBy(fn ($s) => [$kosong[$s->id]->timestamp, $s->id])

@@ -112,4 +112,11 @@ class KasirTest extends TestCase
 
         $this->post('/masuk', ['email' => $kasir->email, 'password' => 'rahasia123'])->assertRedirect('/kasir');
     }
+
+    public function test_transaksi_tanpa_kursi_ditolak(): void
+    {
+        $this->jual(',', 0)->assertSessionHas('error');
+
+        $this->assertSame(0, Booking::count());
+    }
 }

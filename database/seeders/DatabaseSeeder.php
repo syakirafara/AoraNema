@@ -16,11 +16,13 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            // Akun dan studio dibuat lebih dulu karena tidak butuh internet. Kalau TMDB tidak bisa
+            // dihubungi, akun contoh tetap ada dan aplikasinya tetap bisa dibuka.
+            UserSeeder::class,
+            CinemaSeeder::class,
             MovieSeeder::class,
             FilmAkanTayangSeeder::class,
             LengkapiFilmSeeder::class,
-            UserSeeder::class,
-            CinemaSeeder::class,
             JadwalSeeder::class,
         ]);
     }

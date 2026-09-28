@@ -80,6 +80,11 @@ class MasukanContohSeeder extends Seeder
         $gagalAnalisis = 0;
 
         foreach (self::MASUKAN as $urut => [$kategori, $komentar]) {
+            // Masukan yang sudah ada dilewati, supaya seeder yang dijalankan dua kali tidak membuat data ganda.
+            if (Feedback::where('comment', $komentar)->exists()) {
+                continue;
+            }
+
             try {
                 $hasil = $ml->analyzeSentiment($komentar);
                 $nada = $hasil['sentiment'];

@@ -12,8 +12,8 @@
             <div>
                 <h1 class="text-2xl sm:text-3xl">Kelola Studio</h1>
                 <p class="mt-1 max-w-prose text-sm text-nema-muted">
-                    Nama studio sekaligus menjadi format layarnya, misalnya Regular 2D atau IMAX.
-                    Itu yang nanti tampil di halaman jadwal.
+                    Setiap studio punya format layar (Regular 2D, Regular 3D, atau IMAX), susunan kursi,
+                    dan tarif hari biasa serta akhir pekan. Nama dan formatnya tertulis di tiket penonton.
                 </p>
             </div>
 

@@ -6,11 +6,13 @@ Entry point untuk Aoranema ML API..
 
 Jalankan dari folder `ml/`:
 
-    uvicorn api.main:app --reload
+    uvicorn api.main:app --port 8001 --reload
 
 atau:
 
-    python -m uvicorn api.main:app --reload
+    python -m uvicorn api.main:app --port 8001 --reload
+
+Port 8001 dipakai supaya tidak bentrok dengan `php artisan serve` (port 8000).
 
 Endpoint utama:
 - GET  /               -> info singkat API

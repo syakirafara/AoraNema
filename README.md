@@ -63,7 +63,7 @@ Aplikasi pemesanan tiket bioskop dengan Laravel. Rekomendasi film dan analisis s
    TMDB_API_KEY=kunci-tmdb-kamu
    ```
 
-4. Buat tabel dan isi data contoh. Langkah ini butuh internet, karena data film diambil dari TMDB.
+4. Buat tabel dan isi data contoh. Langkah ini butuh internet, karena data film diambil dari TMDB. Kalau TMDB gagal dihubungi, akun contoh dan studio tetap dibuat; jalankan lagi `php artisan db:seed` setelah internet lancar untuk mengambil film dan menyusun jadwalnya.
 
    ```bash
    php artisan migrate --seed
@@ -91,7 +91,7 @@ Akun penonton sudah punya genre favorit, jadi rekomendasi di beranda langsung mu
 
 ### Data contoh
 
-Seeder utama membuat 10 film yang sedang tayang dan beberapa film yang akan tayang dari TMDB lengkap dengan batas usianya, dua akun contoh, delapan studio, dan jadwal tayang untuk hari ini sampai enam hari ke depan. Jadwalnya disusun mengikuti aturan bioskop di bawah, jadi tidak ada yang bertabrakan.
+Seeder utama membuat 10 film yang sedang tayang dan beberapa film yang akan tayang dari TMDB lengkap dengan batas usianya, tiga akun contoh, delapan studio, dan jadwal tayang untuk hari ini sampai enam hari ke depan. Jadwalnya disusun mengikuti aturan bioskop di bawah, jadi tidak ada yang bertabrakan.
 
 Jadwal hanya dibuat untuk tujuh hari. Kalau proyek dibuka lagi setelah itu, susun ulang jadwalnya:
 
@@ -156,7 +156,7 @@ Status pesanan diperbarui dengan dua cara:
 
 - Saat penonton kembali ke halaman tiket atau membuka Tiket Saya, aplikasi menanyakan statusnya ke Midtrans.
 - Midtrans mengirim pemberitahuan (webhook) ke `/midtrans/notifikasi`. Cara ini hanya jalan kalau website bisa diakses dari internet, misalnya lewat [ngrok](https://ngrok.com):
-  1. Jalankan `ngrok http 8000` selagi `php artisan serve` menyala.
+  1. Jalankan `ngrok http 8000` selagi `php artisan serve` menyala. Selama website bisa dibuka dari internet, ubah `APP_DEBUG=true` menjadi `APP_DEBUG=false` di `.env`, supaya pesan galat tidak memperlihatkan isi kode ke orang lain.
   2. Buka aplikasi lewat alamat https yang diberikan ngrok, misalnya `https://contoh.ngrok-free.app`.
   3. Di dashboard Midtrans sandbox, buka Settings, Payment, lalu isi Notification URL dengan `https://contoh.ngrok-free.app/midtrans/notifikasi`.
 

@@ -18,7 +18,7 @@ class IsUser
         /** @var \App\Models\User|null $user */
         $user = auth()->user();
         if (!$user || !$user->isUser()) {
-            abort(403, 'Akses ditolak. Admin tidak dapat memesan tiket.');
+            abort(403, 'Halaman ini khusus akun penonton.');
         }
 
         return $next($request);

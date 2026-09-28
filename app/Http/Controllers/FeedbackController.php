@@ -6,6 +6,7 @@ use App\Models\Feedback;
 use App\Services\AoranemaMlService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Throwable;
 
 class FeedbackController extends Controller
@@ -39,6 +40,10 @@ class FeedbackController extends Controller
                 'min:1',
                 'max:2000',
             ],
+        ], [], [
+            'feedbacks' => 'masukan',
+            'feedbacks.*.category' => 'kategori masukan',
+            'feedbacks.*.comment' => 'isi masukan',
         ]);
 
         try {
@@ -48,6 +53,12 @@ class FeedbackController extends Controller
 
             foreach ($validated['feedbacks'] as $item) {
                 try {
+                    // Kalau satu analisis sudah gagal, sisanya tidak dicoba lagi, supaya penonton
+                    // tidak menunggu layanan yang mati berulang kali.
+                    if ($adaYangBelumDianalisis) {
+                        throw new RuntimeException('Layanan sentimen sedang tidak bisa dihubungi.');
+                    }
+
                     // Memanggil FastAPI endpoint /sentiment
                     $prediction = $ml->analyzeSentiment($item['comment']);
                     $nada = $prediction['sentiment'];
@@ -107,7 +118,7 @@ class FeedbackController extends Controller
             $pesan = 'Masukanmu belum bisa diproses sekarang. Coba lagi beberapa saat lagi.';
 
             if ($request->expectsJson()) {
-                return response()->json(['message' => $pesan, 'error' => $e->getMessage()], 503);
+                return response()->json(['message' => $pesan], 503);
             }
 
             return back()->withInput()->with('gagal', $pesan);

@@ -45,7 +45,7 @@
                     <button type="button" data-kursi="{{ $kode }}" aria-pressed="false"
                             @disabled($sudahTerisi)
                             aria-label="Kursi {{ $kode }}{{ $sudahTerisi ? ', sudah terisi' : '' }}"
-                            class="aspect-square w-full rounded-md border text-[11px] transition-colors sm:text-xs {{ $sudahTerisi ? 'cursor-not-allowed border-transparent bg-nema-surface-2 text-nema-muted/40' : 'border-nema-line hover:bg-nema-surface aria-pressed:border-nema-accent aria-pressed:bg-nema-maroon aria-pressed:text-white' }}">
+                            class="aspect-square w-full rounded-md border text-[11px] transition-colors sm:text-xs {{ $sudahTerisi ? 'cursor-not-allowed border-transparent bg-nema-surface-2 text-nema-muted/40' : 'border-nema-line hover:bg-nema-surface aria-pressed:border-nema-accent aria-pressed:bg-nema-maroon aria-pressed:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent' }}">
                         {{ $n }}
                     </button>
 

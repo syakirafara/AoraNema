@@ -60,7 +60,7 @@
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     @foreach($genres as $genre)
                         <label class="flex cursor-pointer items-start gap-2 rounded-md border border-nema-line bg-nema-surface p-3 transition-colors hover:border-nema-accent has-checked:border-nema-accent has-checked:bg-nema-accent/10">
-                            <input type="checkbox" name="genres[]" value="{{ $genre->id }}" class="mt-0.5 rounded border-nema-line bg-nema-bg text-nema-accent focus:ring-nema-accent focus:ring-offset-nema-surface">
+                            <input type="checkbox" name="genres[]" value="{{ $genre->id }}" @checked(in_array($genre->id, old('genres', []))) class="mt-0.5 size-4 accent-nema-maroon">
                             <span class="text-sm">{{ $genre->name }}</span>
                         </label>
                     @endforeach

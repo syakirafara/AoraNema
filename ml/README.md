@@ -1,6 +1,9 @@
-# Aoranema ML Recommendation Service
+# Aoranema ML Service
 
-Service machine learning untuk fitur **personalized movie recommendation** pada Aoranema.
+Service machine learning untuk dua fitur Aoranema:
+
+- **Rekomendasi film personal** (`POST /recommendations`), dibahas di sebagian besar dokumen ini.
+- **Analisis nada masukan penonton** (`POST /sentiment`) dengan model IndoBERT, dibahas di bagian 8.
 
 Repository ini bukan sekadar berisi file model. Repository ini berisi **pipeline lengkap** yang mengubah histori/preferensi user menjadi ranking film, lalu membungkusnya sebagai **HTTP API menggunakan FastAPI** agar backend Laravel dapat memakainya.
 
@@ -344,17 +347,17 @@ GET  /openapi.json
 Requirement utama:
 
 ```text
-Python
+Python 3.10 atau lebih baru
 pip
 ```
 
+Saat analisis sentimen dipakai pertama kali, model IndoBERT (sekitar 476 MB) diunduh dari Hugging Face,
+jadi butuh internet. Selama model belum tersedia, `/sentiment` menjawab 503 dan Laravel menyimpan masukannya
+dengan nada `unknown`. Rekomendasi tetap jalan tanpa model ini.
+
 Disarankan memakai virtual environment.
 
-Dari folder:
-
-```text
-C:\Aoranema\ml
-```
+Dari folder `ml` di dalam proyek AoraNema
 
 buat virtual environment:
 
@@ -396,6 +399,8 @@ Dari folder `ml`:
 python -m pytest -q tests
 ```
 
+Dari folder proyek juga bisa: `ml\.venv\Scripts\python.exe -m pytest ml/tests`.
+
 Saat dokumentasi ini dibuat, suite terdiri dari:
 
 ```text
@@ -410,13 +415,7 @@ Semua test harus lolos sebelum source code production diubah atau diintegrasikan
 
 # 7. Menjalankan ML API
 
-Dari:
-
-```text
-C:\Aoranema\ml
-```
-
-jalankan:
+Dari folder `ml`, jalankan:
 
 ```powershell
 python -m uvicorn api.main:app --reload --port 8001
@@ -495,6 +494,29 @@ http://127.0.0.1:8001/docs
 ```
 
 Swagger dapat digunakan untuk mencoba API secara manual tanpa Laravel.
+
+## Sentiment
+
+```text
+POST /sentiment
+```
+
+Menilai nada satu masukan penonton. Laravel memanggilnya saat penonton mengirim form masukan.
+
+Request:
+
+```json
+{ "text": "Pembayarannya cepat, tiketnya langsung muncul." }
+```
+
+Response:
+
+```json
+{ "sentiment": "positive", "confidence": 0.97 }
+```
+
+`sentiment` berisi `positive`, `neutral`, atau `negative`. Teks paling panjang 2000 karakter, tetapi model
+hanya membaca 128 token pertama. Kalau model belum bisa dimuat, jawabannya `503`.
 
 ---
 
